@@ -1287,62 +1287,13 @@
         }
         
         class BaseProvider {
-            constructor() { this.name = 'base'; }
-            getUserMetadata(fileId) {
-                const gDriveProvider = this;
-                const oneDriveProvider = this;
-                if (this.name === 'googledrive') {
-                    const file = state.imageFiles.find(f => f.id === fileId);
-                    const providerData = file ? file.appProperties : {};
-                    return {
-                        stack: providerData?.slideboxStack || 'in',
-                        tags: providerData?.slideboxTags ? providerData.slideboxTags.split(',').map(t => t.trim()) : [],
-                        qualityRating: parseInt(providerData?.qualityRating) || 0,
-                        contentRating: parseInt(providerData?.contentRating) || 0,
-                        notes: providerData?.notes || '',
-                        stackSequence: parseInt(providerData?.stackSequence) || 0
-                    };
-                } else {
-                    if (oneDriveProvider.metadataCache.has(fileId)) {
-                        return oneDriveProvider.metadataCache.get(fileId);
-                    }
-                    return { stack: 'in', tags: [], qualityRating: 0, contentRating: 0, notes: '', stackSequence: 0 };
-                }
+            constructor() { 
+                this.name = 'base'; 
+                this.syncQueue = new Map();
+                this.pendingSyncFiles = new Set();
             }
             updateUserMetadata(fileId, updates) {
-                const gDriveProvider = this;
-                const oneDriveProvider = this;
-                if (this.name === 'googledrive') {
-                    const file = state.imageFiles.find(f => f.id === fileId);
-                    if(file) Object.assign(file, updates);
-                    const properties = {};
-                    if (updates.stack) properties.slideboxStack = updates.stack;
-                    if (updates.tags) properties.slideboxTags = updates.tags.join(',');
-                    if (updates.qualityRating !== undefined) properties.qualityRating = updates.qualityRating.toString();
-                    if (updates.contentRating !== undefined) properties.contentRating = updates.contentRating.toString();
-                    if (updates.notes !== undefined) properties.notes = updates.notes;
-                    if (updates.stackSequence !== undefined) properties.stackSequence = updates.stackSequence.toString();
-                    return gDriveProvider.updateFileProperties(fileId, properties);
-                } else {
-                    const oneDriveProvider = this;
-                    const currentMetadata = this.getUserMetadata(fileId);
-                    const newMetadata = { ...currentMetadata, ...updates };
-                    oneDriveProvider.metadataCache.set(fileId, newMetadata);
-                    
-                    const ops = oneDriveProvider.syncQueue.get(fileId) || [];
-                    const nonDeleteOps = ops.filter(op => op.op !== 'delete');
-                    
-                    for (const key in updates) {
-                        if (updates.hasOwnProperty(key)) {
-                            nonDeleteOps.push({ op: 'replace', path: `/${key}`, value: updates[key] });
-                        }
-                    }
-                    oneDriveProvider.syncQueue.set(fileId, nonDeleteOps);
-                    oneDriveProvider.pendingSyncFiles.add(fileId);
-
-                    const file = state.imageFiles.find(f => f.id === fileId);
-                    if(file) Object.assign(file, updates);
-                }
+                throw new Error("Provider must implement updateUserMetadata");
             }
         }
 
@@ -1360,6 +1311,42 @@
                 this.isAuthenticated = false;
                 this.onProgressCallback = null;
                 this.loadStoredCredentials();
+            }
+
+            getUserMetadata(fileId) {
+                const file = state.imageFiles.find(f => f.id === fileId);
+                const providerData = file ? file.appProperties : {};
+                return {
+                    stack: providerData?.slideboxStack || 'in',
+                    tags: providerData?.slideboxTags ? providerData.slideboxTags.split(',').map(t => t.trim()) : [],
+                    qualityRating: parseInt(providerData?.qualityRating) || 0,
+                    contentRating: parseInt(providerData?.contentRating) || 0,
+                    notes: providerData?.notes || '',
+                    stackSequence: parseInt(providerData?.stackSequence) || 0
+                };
+            }
+
+            updateUserMetadata(fileId, updates) {
+                const file = state.imageFiles.find(f => f.id === fileId);
+                if(file) Object.assign(file.appProperties, updates);
+
+                const ops = this.syncQueue.get(fileId) || [];
+                const newOps = Object.entries(updates).map(([key, value]) => {
+                    let newKey;
+                    switch(key) {
+                        case 'stack': newKey = 'slideboxStack'; break;
+                        case 'tags': newKey = 'slideboxTags'; value = value.join(','); break;
+                        default: newKey = key; value = String(value);
+                    }
+                    return { op: 'replace', path: `/${newKey}`, value };
+                });
+                
+                // Simple merge: new operations replace old ones for the same path
+                const opMap = new Map();
+                [...ops, ...newOps].forEach(op => opMap.set(op.path, op));
+                this.syncQueue.set(fileId, Array.from(opMap.values()));
+                
+                this.pendingSyncFiles.add(fileId);
             }
             
             loadStoredCredentials() {
@@ -1520,24 +1507,22 @@
             }
             
             async moveFileToStack(fileId, targetStack, sequence) {
-                return this.updateUserMetadata(fileId, { stack: targetStack, stackSequence: sequence });
+                this.updateUserMetadata(fileId, { stack: targetStack, stackSequence: sequence });
             }
 
             async moveFileToFolder(fileId, targetFolderId) {
                 const file = await this.makeApiCall(`/files/${fileId}?fields=parents`);
                 const previousParents = file.parents.join(',');
                 await this.makeApiCall(`/files/${fileId}?addParents=${targetFolderId}&removeParents=${previousParents}&fields=id,parents`, { method: 'PATCH' });
-                await this.updateUserMetadata(fileId, { stack: 'in', stackSequence: Date.now() });
-                return true;
-            }
-            
-            async updateFileProperties(fileId, properties) {
-                await this.makeApiCall(`/files/${fileId}`, { method: 'PATCH', body: JSON.stringify({ appProperties: properties }) });
+                this.updateUserMetadata(fileId, { stack: 'in', stackSequence: Date.now() });
                 return true;
             }
             
             async deleteFile(fileId) {
                 await this.makeApiCall(`/files/${fileId}`, { method: 'PATCH', body: JSON.stringify({ trashed: true }) });
+                // We don't need to sync metadata for a trashed file. The action itself is the sync.
+                this.syncQueue.delete(fileId);
+                this.pendingSyncFiles.delete(fileId);
                 return true;
             }
             
@@ -1560,11 +1545,30 @@
                 this.breadcrumb = [];
                 this.onProgressCallback = null;
                 this.metadataCache = new Map();
-                this.pendingSyncFiles = new Set();
-                this.syncQueue = new Map();
                 this.initMSAL();
             }
             
+            getUserMetadata(fileId) {
+                return this.metadataCache.get(fileId) || { stack: 'in', tags: [], qualityRating: 0, contentRating: 0, notes: '', stackSequence: 0 };
+            }
+
+            updateUserMetadata(fileId, updates) {
+                const currentMetadata = this.getUserMetadata(fileId);
+                const newMetadata = { ...currentMetadata, ...updates };
+                this.metadataCache.set(fileId, newMetadata);
+
+                const ops = this.syncQueue.get(fileId) || [];
+                const nonDeleteOps = ops.filter(op => op.op !== 'delete');
+                const newOps = Object.entries(updates).map(([key, value]) => ({ op: 'replace', path: `/${key}`, value }));
+
+                // Simple merge: new operations replace old ones for the same path
+                const opMap = new Map();
+                [...nonDeleteOps, ...newOps].forEach(op => opMap.set(op.path, op));
+                this.syncQueue.set(fileId, Array.from(opMap.values()));
+
+                this.pendingSyncFiles.add(fileId);
+            }
+
             initMSAL() {
                 const msalConfig = {
                     auth: {
@@ -1791,9 +1795,22 @@
 
             initWorker() {
                 const workerCode = `
-                    let accessToken = null; let apiBase = 'https://graph.microsoft.com/v1.0';
+                    let accessToken = null;
+                    let googleApiBase = 'https://www.googleapis.com/drive/v3';
+                    let oneDriveApiBase = 'https://graph.microsoft.com/v1.0';
 
-                    function applyPatches(doc, patches) {
+                    self.onmessage = (e) => {
+                        const { command, payload } = e.data;
+                        if (command === 'SYNC') {
+                            accessToken = payload.accessToken;
+                            syncFiles(payload.providerType, payload.operations);
+                        } else if (command === 'NEW_TOKEN') {
+                            accessToken = payload.accessToken;
+                            self.postMessage({ status: 'RESUME_SYNC' });
+                        }
+                    };
+
+                    function applyJsonPatches(doc, patches) {
                         let newDoc = { ...doc };
                         for (const patch of patches) {
                             if (patch.op === 'replace') {
@@ -1804,50 +1821,36 @@
                         return newDoc;
                     }
 
-                    self.onmessage = (e) => {
-                        const { command, payload } = e.data;
-                        if (command === 'SYNC') { accessToken = payload.accessToken; syncFiles(payload.operations); }
-                        else if (command === 'NEW_TOKEN') { accessToken = payload.accessToken; self.postMessage({ status: 'RESUME_SYNC' }); }
-                    };
-
-                    async function syncFiles(operations) {
-                        self.postMessage({ status: 'SYNC_START' });
+                    async function syncFiles(providerType, operations) {
+                        self.postMessage({ status: 'SYNC_START', payload: { providerType } });
                         const failedOperations = {};
                         const fileIds = Object.keys(operations);
 
                         for (const fileId of fileIds) {
                             const fileOps = operations[fileId];
                             try {
-                                if (fileOps.some(op => op.op === 'delete')) {
-                                    await makeApiCall(\`/me/drive/special/approot:/\${fileId}.json\`, { method: 'DELETE' });
-                                } else {
-                                    let currentDoc = {};
-                                    try {
-                                        const response = await makeApiCall(\`/me/drive/special/approot:/\${fileId}.json:/content\`);
-                                        currentDoc = await response.json();
-                                    } catch (e) {
-                                        if (!e.message.includes('404')) throw e;
-                                    }
-                                    
-                                    const newDoc = applyPatches(currentDoc, fileOps);
-                                    
-                                    await makeApiCall(\`/me/drive/special/approot:/\${fileId}.json:/content\`, { 
-                                        method: 'PUT', 
-                                        headers: { 'Content-Type': 'application/json' }, 
-                                        body: JSON.stringify(newDoc) 
-                                    });
+                                if (providerType === 'onedrive') {
+                                    await syncOneDriveFile(fileId, fileOps);
+                                } else if (providerType === 'googledrive') {
+                                    await syncGoogleDriveFile(fileId, fileOps);
                                 }
                                 self.postMessage({ status: 'FILE_SUCCESS', payload: { fileId } });
                             } catch (error) {
                                 if (error.message === 'TOKEN_EXPIRED') {
                                     self.postMessage({ status: 'TOKEN_EXPIRED' });
                                     await new Promise(resolve => {
-                                        const resumeListener = (e) => { if (e.data.status === 'RESUME_SYNC') { self.removeEventListener('message', resumeListener); resolve(); } };
-                                        self.addEventListener('message', resumeListener);
+                                        const listener = (e) => {
+                                            if (e.data.status === 'RESUME_SYNC') {
+                                                self.removeEventListener('message', listener);
+                                                resolve();
+                                            }
+                                        };
+                                        self.addEventListener('message', listener);
                                     });
+                                    // Re-queue this and all subsequent operations
                                     const remainingIds = fileIds.slice(fileIds.indexOf(fileId));
-                                    for(const id of remainingIds) { failedOperations[id] = operations[id]; }
-                                    break; 
+                                    remainingIds.forEach(id => { failedOperations[id] = operations[id]; });
+                                    break;
                                 } else {
                                     failedOperations[fileId] = fileOps;
                                     self.postMessage({ status: 'FILE_FAILURE', payload: { fileId, error: error.message } });
@@ -1857,14 +1860,54 @@
                         self.postMessage({ status: 'SYNC_COMPLETE', payload: { failedOperations } });
                     }
                     
-                    async function makeApiCall(endpoint, options = {}) {
+                    async function syncOneDriveFile(fileId, fileOps) {
+                        if (fileOps.some(op => op.op === 'delete')) {
+                            await makeApiCall(\`/me/drive/special/approot:/\${fileId}.json\`, { method: 'DELETE' }, 'onedrive');
+                        } else {
+                            let currentDoc = {};
+                            try {
+                                const response = await makeApiCall(\`/me/drive/special/approot:/\${fileId}.json:/content\`, {}, 'onedrive');
+                                currentDoc = await response.json();
+                            } catch (e) {
+                                if (!e.message.includes('404')) throw e; // 404 is fine, means new file
+                            }
+                            
+                            const newDoc = applyJsonPatches(currentDoc, fileOps);
+                            
+                            await makeApiCall(\`/me/drive/special/approot:/\${fileId}.json:/content\`, { 
+                                method: 'PUT', 
+                                headers: { 'Content-Type': 'application/json' }, 
+                                body: JSON.stringify(newDoc) 
+                            }, 'onedrive');
+                        }
+                    }
+
+                    async function syncGoogleDriveFile(fileId, fileOps) {
+                        const properties = {};
+                        fileOps.forEach(op => {
+                            properties[op.path.substring(1)] = op.value;
+                        });
+
+                        if (Object.keys(properties).length > 0) {
+                             await makeApiCall(\`/files/\${fileId}\`, {
+                                method: 'PATCH',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ appProperties: properties })
+                            }, 'googledrive');
+                        }
+                    }
+
+                    async function makeApiCall(endpoint, options = {}, providerType) {
                         if (!accessToken) throw new Error('No access token in worker');
+                        const apiBase = providerType === 'googledrive' ? googleApiBase : oneDriveApiBase;
                         const url = \`\${apiBase}\${endpoint}\`;
                         const headers = { 'Authorization': \`Bearer \` + accessToken, ...options.headers };
                         const response = await fetch(url, { ...options, headers });
-                        if (response.status === 401) { throw new Error('TOKEN_EXPIRED'); }
-                        if (response.status === 404) { throw new Error('404'); }
-                        if (!response.ok) { const errorText = await response.text(); throw new Error(\`\${response.status}: \${errorText}\`); }
+                        if (response.status === 401) throw new Error('TOKEN_EXPIRED');
+                        if (response.status === 404 && providerType === 'onedrive') throw new Error('404');
+                        if (!response.ok) {
+                           const errorText = await response.text(); throw new Error(\`\${response.status}: \${errorText}\`); 
+                        }
                         return response;
                     }
                 `;
@@ -1873,67 +1916,77 @@
                 this.worker.onmessage = this.handleWorkerMessage.bind(this);
             }
 
-            async handleWorkerMessage(e) {
+            handleWorkerMessage(e) {
                 const { status, payload } = e.data;
                 switch (status) {
                     case 'SYNC_START':
                         this.isSyncing = true;
                         Utils.elements.backButtonSpinner.style.display = 'inline-block';
-                        Utils.showToast('Syncing metadata...', 'info');
+                        Utils.showToast(\`Syncing \${state.providerType} metadata...\`, 'info');
                         break;
                     case 'SYNC_COMPLETE':
                         this.isSyncing = false;
                         Utils.elements.backButtonSpinner.style.display = 'none';
-                        const failedCount = Object.keys(payload.failedOperations).length;
+                        const failedOps = payload.failedOperations;
+                        const failedCount = Object.keys(failedOps).length;
                         if (failedCount > 0) {
-                            for (const fileId in payload.failedOperations) {
-                                if (payload.failedOperations.hasOwnProperty(fileId)) {
-                                    const existingOps = this.provider.syncQueue.get(fileId) || [];
-                                    this.provider.syncQueue.set(fileId, [...payload.failedOperations[fileId], ...existingOps]);
-                                    this.provider.pendingSyncFiles.add(fileId);
-                                }
+                            for (const fileId in failedOps) {
+                                const existingOps = this.provider.syncQueue.get(fileId) || [];
+                                this.provider.syncQueue.set(fileId, [...failedOps[fileId], ...existingOps]);
+                                this.provider.pendingSyncFiles.add(fileId);
                             }
                             Utils.showToast(`Sync complete. ${failedCount} item(s) failed and were re-queued.`, 'error', true);
                         } else {
-                            Utils.showToast('All changes synced to OneDrive.', 'success');
+                            Utils.showToast('All changes synced.', 'success');
                         }
                         break;
                     case 'TOKEN_EXPIRED':
                         if (!this.tokenRequestPending) {
                             this.tokenRequestPending = true;
-                            try {
-                                const newAccessToken = await this.provider.getAccessToken();
+                            this.provider.getAccessToken().then(newAccessToken => {
                                 this.worker.postMessage({ command: 'NEW_TOKEN', payload: { accessToken: newAccessToken } });
-                            } catch (error) {
+                            }).catch(error => {
                                 Utils.showToast('Could not refresh session. Sync paused.', 'error', true);
                                 this.isSyncing = false;
-                            } finally {
+                            }).finally(() => {
                                 this.tokenRequestPending = false;
-                            }
+                            });
                         }
                         break;
                 }
             }
 
             addEventListeners() {
-                document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') { this.triggerSync(); } });
-                window.addEventListener('beforeunload', (e) => {
-                    if (this.provider.pendingSyncFiles.size > 0) {
-                        this.triggerSync();
-                        const start = Date.now(); while(Date.now() - start < 100) {}
-                    }
-                });
+                // Sync when page is hidden or closed
+                document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') this.triggerSync(); });
+                window.addEventListener('beforeunload', () => { if (this.provider.pendingSyncFiles.size > 0) this.triggerSync(); });
+                // Also trigger sync periodically
+                setInterval(() => this.triggerSync(), 30000);
             }
 
             async triggerSync() {
-                if (this.isSyncing || this.provider.syncQueue.size === 0) { return; }
+                if (this.isSyncing || this.provider.pendingSyncFiles.size === 0) return;
+                
                 try {
                     const accessToken = await this.provider.getAccessToken();
-                    const operationsToSend = Object.fromEntries(this.provider.syncQueue);
+                    const operationsToSend = {};
+                    this.provider.pendingSyncFiles.forEach(fileId => {
+                        if (this.provider.syncQueue.has(fileId)) {
+                            operationsToSend[fileId] = this.provider.syncQueue.get(fileId);
+                        }
+                    });
+
                     this.provider.syncQueue.clear();
                     this.provider.pendingSyncFiles.clear();
                     
-                    this.worker.postMessage({ command: 'SYNC', payload: { accessToken, operations: operationsToSend } });
+                    this.worker.postMessage({ 
+                        command: 'SYNC', 
+                        payload: { 
+                            accessToken, 
+                            operations: operationsToSend,
+                            providerType: state.providerType 
+                        } 
+                    });
                 } catch (error) {
                     Utils.showToast('Could not start sync. Are you online?', 'error', true);
                 }
@@ -2028,6 +2081,7 @@
                 const provider = new GoogleDriveProvider();
                 if (provider.isAuthenticated) {
                     state.provider = provider;
+                    state.syncManager = new MetadataSyncManager(provider);
                     Utils.showScreen('gdrive-folder-screen');
                     Folders.loadGoogleDriveFolders();
                 }
@@ -2040,7 +2094,7 @@
                 try {
                     if (await provider.authenticate()) {
                         state.provider = provider;
-                        state.syncManager = new MetadataSyncManager(state.provider);
+                        state.syncManager = new MetadataSyncManager(provider);
                         Utils.showScreen('onedrive-folder-screen');
                         Folders.loadOneDriveFolders();
                     }
@@ -2058,6 +2112,7 @@
             async initializeWithProvider(providerType, folderId, folderName, providerInstance) {
                 state.providerType = providerType;
                 state.provider = providerInstance;
+                if (!state.syncManager) { state.syncManager = new MetadataSyncManager(providerInstance); }
                 state.currentFolder.id = folderId;
                 state.currentFolder.name = folderName;
                 await this.loadImages();
@@ -2155,9 +2210,11 @@
             moveFileToStack(fileId, targetStack, sequence) {
                 const file = state.imageFiles.find(f => f.id === fileId);
                 if (!file) throw new Error('File not found');
-                file.stack = targetStack;
-                file.stackSequence = sequence;
-                state.provider.moveFileToStack(fileId, targetStack, sequence);
+                
+                const updates = { stack: targetStack, stackSequence: sequence };
+                Object.assign(file, updates);
+                state.provider.updateUserMetadata(fileId, updates);
+
                 return file;
             },
             
@@ -3036,6 +3093,7 @@
                         const provider = new GoogleDriveProvider();
                         if (await provider.authenticate(clientSecret)) {
                             state.provider = provider;
+                            state.syncManager = new MetadataSyncManager(provider);
                             Utils.elements.gdriveAuthStatus.textContent = '✅ Connected to Google Drive!';
                             Utils.elements.gdriveAuthStatus.className = 'status success';
                             Utils.elements.gdriveClientSecret.value = '';
