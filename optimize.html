@@ -574,7 +574,7 @@
         <div class="nav-button details" id="details-button">Details →</div>
         
         <div class="image-viewport" id="image-viewport">
-            <img class="center-image zoomable" id="center-image" alt="Select a folder to start" />
+            <img class="center-image zoomable" id="center-image" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" alt="Select a folder to start" >
         </div>
         
         <div class="edge-glow top" id="edge-top"></div>
@@ -775,14 +775,14 @@
         </div>
     </div>
 
-    <script defer>
+    <script>
         // ===== ORBITAL8 Goji Version - App Root & Web Worker =====
         
         const STACKS = ['in', 'out', 'priority', 'trash'];
         const STACK_NAMES = { 'in': 'In', 'out': 'Out', 'priority': 'Priority', 'trash': 'Trash' };
         
         const state = {
-            provider: null, providerType: null, fileCache: null, metadataWorker: null,
+            provider: null, providerType: null, fileCache: null, metadataExtractor: null,
             syncManager: null, // New: Manages background sync
             visualCues: null, haptic: null, export: null, currentFolder: { id: null, name: '' },
             imageFiles: [], currentImageLoadId: null, currentStack: 'in', currentStackPosition: 0,
@@ -997,31 +997,6 @@
                 }
             }
         };
-        
-        class ImagePreloader {
-            constructor() {
-                this.cache = {};
-            }
-            preload(file) {
-                if (!file || this.cache[file.id]) return;
-                const url = Utils.getPreferredImageUrl(file);
-                const img = new Image();
-                img.src = url;
-                this.cache[file.id] = true;
-            }
-            preloadNeighbors() {
-                const stack = state.stacks[state.currentStack];
-                if (!stack || stack.length < 2) return;
-                const nextIndex = state.currentStackPosition + 1;
-                const prevIndex = state.currentStackPosition - 1;
-                if (nextIndex < stack.length) {
-                    this.preload(stack[nextIndex]);
-                }
-                if (prevIndex >= 0) {
-                    this.preload(stack[prevIndex]);
-                }
-            }
-        }
 
         class VisualCueManager {
             constructor() {
@@ -1118,7 +1093,7 @@
             
             async getCachedFiles(folderId) {
                 if (!this.db) return null;
-                return new Promise((resolve) => {
+                return new Promise((resolve, reject) => {
                     const transaction = this.db.transaction(['files'], 'readonly');
                     const store = transaction.objectStore('files');
                     const request = store.get(folderId);
@@ -1152,7 +1127,7 @@
             
             async getMetadata(fileId) {
                 if (!this.db) return null;
-                 return new Promise((resolve) => {
+                 return new Promise((resolve, reject) => {
                     const transaction = this.db.transaction(['metadata'], 'readonly');
                     const store = transaction.objectStore('metadata');
                     const request = store.get(fileId);
@@ -1204,116 +1179,114 @@
             }
         }
 
-        class MetadataWorkerManager {
+        class MetadataExtractor {
             constructor() {
-                this.worker = null;
-                this.callbacks = new Map();
-                this.messageId = 0;
-                this.initWorker();
+                this.abortController = null;
             }
-
-            initWorker() {
-                const workerCode = `
-                    const extract = (buffer) => {
-                        if (!buffer || buffer.byteLength < 8) return {};
-                        const metadata = {};
-                        const view = new DataView(buffer);
-                        let pos = 8;
-                        try {
-                            while (pos < buffer.byteLength - 12) {
-                                const chunkLength = view.getUint32(pos, false);
-                                pos += 4;
-                                let chunkType = '';
-                                for (let i = 0; i < 4; i++) {
-                                    chunkType += String.fromCharCode(view.getUint8(pos + i));
-                                }
-                                pos += 4;
-                                if (chunkType === 'tEXt') {
-                                    let keyword = '', value = '', nullFound = false;
-                                    for (let i = 0; i < chunkLength; i++) {
-                                        const byte = view.getUint8(pos + i);
-                                        if (!nullFound) {
-                                            if (byte === 0) nullFound = true; else keyword += String.fromCharCode(byte);
-                                        } else { value += String.fromCharCode(byte); }
-                                    }
-                                    metadata[keyword] = value;
-                                } else if (chunkType === 'IHDR') {
-                                    metadata._dimensions = { width: view.getUint32(pos, false), height: view.getUint32(pos + 4, false) };
-                                } else if (chunkType === 'IEND') break;
-                                pos += chunkLength + 4;
-                                if (chunkLength > buffer.byteLength || pos > buffer.byteLength) break;
-                            }
-                        } catch (e) { /* ignore */ }
-                        return metadata;
-                    };
-
-                    self.onmessage = async (e) => {
-                        const { id, payload } = e.data;
-                        const { url, headers } = payload;
-                        try {
-                            const response = await fetch(url, { headers });
-                            if (!response.ok) throw new Error(\`HTTP \${response.status}\`);
-                            const buffer = await response.arrayBuffer();
-                            const metadata = extract(buffer);
-                            self.postMessage({ id, status: 'success', payload: metadata });
-                        } catch (error) {
-                            self.postMessage({ id, status: 'error', payload: error.message });
-                        }
-                    };
-                `;
-                const blob = new Blob([workerCode], { type: 'application/javascript' });
-                this.worker = new Worker(URL.createObjectURL(blob));
-                this.worker.onmessage = this.handleWorkerMessage.bind(this);
-            }
-
-            handleWorkerMessage(e) {
-                const { id, status, payload } = e.data;
-                if (this.callbacks.has(id)) {
-                    const { resolve, reject } = this.callbacks.get(id);
-                    if (status === 'success') {
-                        resolve(payload);
-                    } else {
-                        reject(new Error(payload));
-                    }
-                    this.callbacks.delete(id);
+            
+            abort() {
+                if (this.abortController) {
+                    this.abortController.abort();
+                    this.abortController = null;
                 }
             }
-
-            async fetchAndExtract(url, headers) {
-                return new Promise((resolve, reject) => {
-                    const id = this.messageId++;
-                    this.callbacks.set(id, { resolve, reject });
-                    this.worker.postMessage({ id, payload: { url, headers } });
-                });
+            
+            async extract(buffer) {
+                if (!buffer) return {};
+                
+                const metadata = {};
+                const view = new DataView(buffer);
+                
+                if (buffer.byteLength < 8) return {};
+                
+                let pos = 8;
+                
+                try {
+                    while (pos < buffer.byteLength - 12) {
+                        const chunkLength = view.getUint32(pos, false);
+                        pos += 4;
+                        
+                        let chunkType = '';
+                        for (let i = 0; i < 4; i++) {
+                            chunkType += String.fromCharCode(view.getUint8(pos + i));
+                        }
+                        pos += 4;
+                        
+                        if (chunkType === 'tEXt') {
+                            let keyword = '';
+                            let value = '';
+                            let nullFound = false;
+                            
+                            for (let i = 0; i < chunkLength; i++) {
+                                const byte = view.getUint8(pos + i);
+                                if (!nullFound) {
+                                    if (byte === 0) {
+                                        nullFound = true;
+                                    } else {
+                                        keyword += String.fromCharCode(byte);
+                                    }
+                                } else {
+                                    value += String.fromCharCode(byte);
+                                }
+                            }
+                            metadata[keyword] = value;
+                        } else if (chunkType === 'IHDR') {
+                            const width = view.getUint32(pos, false);
+                            const height = view.getUint32(pos + 4, false);
+                            metadata._dimensions = { width, height };
+                        } else if (chunkType === 'IEND') {
+                            break;
+                        }
+                        
+                        pos += chunkLength + 4;
+                        
+                        if (chunkLength > buffer.byteLength || pos > buffer.byteLength) {
+                            break;
+                        }
+                    }
+                } catch (error) {
+                    // Return what we have so far
+                }
+                
+                return metadata;
             }
-
-            terminate() {
-                if (this.worker) this.worker.terminate();
-            }
-        }
-
-        class MetadataExtractor {
+            
             async fetchMetadata(file, isForExport = false) {
                 if (file.mimeType !== 'image/png') {
                     if (!isForExport) file.metadataStatus = 'loaded';
                     return { error: 'Not a PNG file' };
                 }
-
+                
                 try {
-                    let url, headers = {};
+                    this.abortController = new AbortController();
+                    let response;
+
                     if (state.providerType === 'googledrive') {
-                        const accessToken = await state.provider.getAccessToken();
-                        url = `https://www.googleapis.com/drive/v3/files/${file.id}?alt=media`;
-                        headers = { 'Authorization': `Bearer ${accessToken}`, 'Range': 'bytes=0-65535' };
+                        response = await state.provider.makeApiCall(`/files/${file.id}?alt=media`, {
+                            headers: { 'Range': 'bytes=0-65535' },
+                            signal: this.abortController.signal
+                        }, false);
                     } else {
                         const accessToken = await state.provider.getAccessToken();
-                        url = `https://graph.microsoft.com/v1.0/me/drive/items/${file.id}/content`;
-                        headers = { 'Authorization': `Bearer ${accessToken}`, 'Range': 'bytes=0-65535' };
+                        response = await fetch(`https://graph.microsoft.com/v1.0/me/drive/items/${file.id}/content`, {
+                            headers: { 
+                                'Authorization': `Bearer ${accessToken}`,
+                                'Range': 'bytes=0-65535'
+                            },
+                            signal: this.abortController.signal
+                        });
                     }
-
-                    return await state.metadataWorker.fetchAndExtract(url, headers);
-
+                    
+                    if (!response.ok) {
+                        throw new Error(`HTTP ${response.status} ${response.statusText}`);
+                    }
+                    
+                    const buffer = await response.arrayBuffer();
+                    return await this.extract(buffer);
                 } catch (error) {
+                    if (error.name === 'AbortError') {
+                        return { error: 'Operation cancelled' };
+                    }
                     return { error: error.message };
                 }
             }
@@ -1363,23 +1336,6 @@
                     oneDriveProvider.dirtyFiles.add(fileId);
                     const file = state.imageFiles.find(f => f.id === fileId);
                     if(file) Object.assign(file, updates);
-                }
-            }
-             async getAccessToken() {
-                if (this.name === 'googledrive') {
-                    return this.accessToken;
-                } else {
-                    if (!this.activeAccount) throw new Error('No active account');
-                    try {
-                        const response = await this.msalInstance.acquireTokenSilent({ scopes: ['Files.ReadWrite.AppFolder'], account: this.activeAccount });
-                        return response.accessToken;
-                    } catch (silentError) {
-                        if (silentError instanceof msal.InteractionRequiredAuthError) {
-                            const response = await this.msalInstance.acquireTokenPopup({ scopes: ['Files.ReadWrite.AppFolder'], account: this.activeAccount });
-                            return response.accessToken;
-                        }
-                        throw silentError;
-                    }
                 }
             }
         }
@@ -1633,6 +1589,20 @@
                 }
             }
             
+            async getAccessToken() {
+                if (!this.activeAccount) { throw new Error('No active account'); }
+                try {
+                    const response = await this.msalInstance.acquireTokenSilent({ scopes: ['Files.ReadWrite.AppFolder'], account: this.activeAccount });
+                    return response.accessToken;
+                } catch (silentError) {
+                    if (silentError instanceof msal.InteractionRequiredAuthError) {
+                        const response = await this.msalInstance.acquireTokenPopup({ scopes: ['Files.ReadWrite.AppFolder'], account: this.activeAccount });
+                        return response.accessToken;
+                    }
+                    throw silentError;
+                }
+            }
+            
             async makeApiCall(endpoint, options = {}) {
                 const accessToken = await this.getAccessToken();
                 const url = endpoint.startsWith('https://') ? endpoint : `${this.apiBase}${endpoint}`;
@@ -1872,7 +1842,7 @@
                         Utils.elements.backButtonSpinner.style.display = 'none';
                         if (payload.failedFiles.length > 0) {
                             payload.failedFiles.forEach(id => this.provider.dirtyFiles.add(id));
-                            Utils.showToast(\`Sync complete. \${payload.failedFiles.length} item(s) failed.\`, 'error', true);
+                            Utils.showToast(`Sync complete. ${payload.failedFiles.length} item(s) failed.`, 'error', true);
                         } else {
                             Utils.showToast('All changes synced to OneDrive.', 'success');
                         }
@@ -1896,9 +1866,10 @@
 
             addEventListeners() {
                 document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') { this.triggerSync(); } });
-                window.addEventListener('beforeunload', () => {
-                    if (this.provider?.dirtyFiles.size > 0) {
+                window.addEventListener('beforeunload', (e) => {
+                    if (this.provider.dirtyFiles.size > 0) {
                         this.triggerSync();
+                        const start = Date.now(); while(Date.now() - start < 100) {}
                     }
                 });
             }
@@ -1988,8 +1959,8 @@
                 const folderName = state.currentFolder.name.replace(/[^a-z0-9]/gi, '_').toLowerCase();
                 const stackName = state.grid.stack;
                 const date = new Date().toISOString().split('T')[0];
-                const filename = \`orbital8_\${folderName}_\${stackName}_\${date}.csv\`;
-                const csvContent = data.map(row => row.map(field => \`"\${String(field).replace(/"/g, '""')}"\`).join(',')).join('\n');
+                const filename = `orbital8_${folderName}_${stackName}_${date}.csv`;
+                const csvContent = data.map(row => row.map(field => `"${String(field).replace(/"/g, '""')}"`).join(',')).join('\n');
                 const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
                 const url = URL.createObjectURL(blob);
                 const a = document.createElement('a');
@@ -2018,7 +1989,7 @@
                 try {
                     if (await provider.authenticate()) {
                         state.provider = provider;
-                        state.syncManager = new MetadataSyncManager(provider);
+                        state.syncManager = new MetadataSyncManager(state.provider);
                         Utils.showScreen('onedrive-folder-screen');
                         Folders.loadOneDriveFolders();
                     }
@@ -2045,9 +2016,9 @@
             async loadImages() {
                 Utils.showScreen('loading-screen');
                 Utils.updateLoadingProgress(0, 0);
-                state.provider.onProgressCallback = (count) => Utils.updateLoadingProgress(count, 0, \`Found \${count} images...\`);
+                state.provider.onProgressCallback = (count) => Utils.updateLoadingProgress(count, 0, `Found ${count} images...`);
                 try {
-                    Utils.elements.loadingMessage.textContent = \`Loading from \${state.currentFolder.name}...\`;
+                    Utils.elements.loadingMessage.textContent = `Loading from ${state.currentFolder.name}...`;
                     const result = await state.provider.getFilesAndMetadata(state.currentFolder.id);
                     const files = result.files || [];
                     if (files.length === 0) {
@@ -2059,13 +2030,14 @@
                         Utils.updateLoadingProgress(index + 1, files.length, 'Processing files...');
                         return this.processFileWithProviderMetadata(file);
                     });
-                    
-                    this.extractMetadataInBackground(state.imageFiles.filter(f => f.mimeType === 'image/png'));
-                    
+                    const pngCount = files.filter(f => f.mimeType === 'image/png').length;
+                    if (pngCount > 0) {
+                        this.extractMetadataInBackground(state.imageFiles.filter(f => f.mimeType === 'image/png'));
+                    }
                     Core.initializeStacks();
                     Core.initializeImageDisplay();
                 } catch (error) {
-                    Utils.showToast(\`Error loading images: \${error.message}\`, 'error', true);
+                    Utils.showToast(`Error loading images: ${error.message}`, 'error', true);
                     this.returnToFolderSelection();
                 } finally {
                     if (state.provider) { state.provider.onProgressCallback = null; }
@@ -2099,7 +2071,7 @@
                     const folderName = state.currentFolder.name || 'Unknown';
                     const imageCount = state.imageFiles.length;
                     const provider = state.providerType === 'googledrive' ? 'Google Drive' : 'OneDrive';
-                    this.showTooltip(Utils.elements.backButton, \`\${provider}: \${folderName} • \${imageCount} images\`);
+                    this.showTooltip(Utils.elements.backButton, `${provider}: ${folderName} • ${imageCount} images`);
                 });
                 Utils.elements.backButton.addEventListener('mouseleave', this.hideTooltip);
             },
@@ -2111,11 +2083,11 @@
                 tooltip.textContent = text;
                 document.body.appendChild(tooltip);
                 const rect = element.getBoundingClientRect();
-                tooltip.style.left = \`\${rect.left}px\`;
-                tooltip.style.top = \`\${rect.bottom + 8}px\`;
+                tooltip.style.left = `${rect.left}px`;
+                tooltip.style.top = `${rect.bottom + 8}px`;
                 const tooltipRect = tooltip.getBoundingClientRect();
                 if (tooltipRect.right > window.innerWidth) {
-                    tooltip.style.left = \`\${window.innerWidth - tooltipRect.width - 10}px\`;
+                    tooltip.style.left = `${window.innerWidth - tooltipRect.width - 10}px`;
                 }
             },
             
@@ -2147,25 +2119,24 @@
             
             async deleteFile(fileId) { return await state.provider.deleteFile(fileId); },
             
-            extractMetadataInBackground(pngFiles) {
+            async extractMetadataInBackground(pngFiles) {
                 const BATCH_SIZE = 5;
                 for (let i = 0; i < pngFiles.length; i += BATCH_SIZE) {
                     const batch = pngFiles.slice(i, i + BATCH_SIZE);
-                    batch.forEach(file => this.processFileMetadata(file));
+                    await Promise.allSettled(batch.map(file => this.processFileMetadata(file)));
+                    if (i + BATCH_SIZE < pngFiles.length) { await new Promise(resolve => setTimeout(resolve, 100)); }
                 }
             },
             
             async processFileMetadata(file) {
                 if (file.metadataStatus === 'loaded' || file.metadataStatus === 'loading') return;
                 file.metadataStatus = 'loading';
-                
                 const cachedMetadata = await state.fileCache.getMetadata(file.id);
                 if (cachedMetadata) {
                     file.extractedMetadata = cachedMetadata;
                     file.metadataStatus = 'loaded';
                     return;
                 }
-
                 try {
                     const metadata = await state.metadataExtractor.fetchMetadata(file);
                     if (metadata.error) { throw new Error(metadata.error); }
@@ -2175,7 +2146,7 @@
                     }
                     file.metadataStatus = 'loaded';
                 } catch (error) {
-                    console.warn(\`Metadata extraction failed for \${file.name}: \${error.message}\`);
+                    console.warn(`Metadata extraction failed for ${file.name}: ${error.message}`);
                     file.metadataStatus = 'error';
                 }
             }
@@ -2197,7 +2168,7 @@
             updateStackCounts() {
                 STACKS.forEach(stack => {
                     const count = state.stacks[stack].length;
-                    const pill = document.getElementById(\`pill-\${stack}\`);
+                    const pill = document.getElementById(`pill-${stack}`);
                     if (pill) { pill.textContent = count > 999 ? ':)' : String(count); pill.classList.toggle('visible', count > 0); }
                 });
             },
@@ -2224,10 +2195,9 @@
                 if (!file) { this.showEmptyState(); return; }
                 Utils.elements.detailsButton.style.display = 'flex';
                 await Utils.setImageSrc(Utils.elements.centerImage, file);
-                state.imagePreloader.preloadNeighbors();
                 const folderName = state.currentFolder.name;
                 const truncatedFolder = folderName.length > 12 ? folderName.substring(0, 12) + '...' : folderName;
-                Utils.elements.filenameOverlay.textContent = \`\${truncatedFolder} / \${file.name.replace(/\.[^/.]+$/, "")}\`;
+                Utils.elements.filenameOverlay.textContent = `${truncatedFolder} / ${file.name.replace(/\.[^/.]+$/, "")}`;
                 Utils.elements.filenameOverlay.href = state.export.getDirectImageURL(file);
                 Utils.elements.filenameOverlay.classList.add('visible');
                 state.currentScale = 1; state.panOffset = { x: 0, y: 0 };
@@ -2239,17 +2209,17 @@
                 const stack = state.stacks[state.currentStack];
                 const total = stack.length;
                 const current = total > 0 ? state.currentStackPosition + 1 : 0;
-                const text = \`\${current} / \${total}\`;
+                const text = `${current} / ${total}`;
                 Utils.elements.focusImageCount.textContent = text;
                 Utils.elements.normalImageCount.textContent = text;
                 Utils.elements.focusStackName.textContent = STACK_NAMES[state.currentStack];
             },
             applyTransform() {
-                Utils.elements.centerImage.style.transform = \`scale(\${state.currentScale}) translate(\${state.panOffset.x}px, \${state.panOffset.y}px)\`;
+                Utils.elements.centerImage.style.transform = `scale(${state.currentScale}) translate(${state.panOffset.x}px, ${state.panOffset.y}px)`;
             },
             updateActiveProxTab() {
-                STACKS.forEach(stack => document.getElementById(\`pill-\${stack}\`).classList.remove('active'));
-                document.getElementById(\`pill-\${state.currentStack}\`).classList.add('active');
+                STACKS.forEach(stack => document.getElementById(`pill-${stack}`).classList.remove('active'));
+                document.getElementById(`pill-${state.currentStack}`).classList.add('active');
             },
             async moveToStack(targetStack) {
                 const stack = state.stacks[state.currentStack];
@@ -2282,7 +2252,7 @@
                 Utils.elements.detailsButton.style.display = 'none';
                 this.updateImageCounters();
                 setTimeout(() => {
-                    Utils.elements.centerImage.src = '';
+                    Utils.elements.centerImage.src = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
                     Utils.elements.centerImage.alt = 'No images in this stack';
                     Utils.elements.emptyState.classList.remove('hidden');
                     Utils.elements.centerImage.style.opacity = '1';
@@ -2299,7 +2269,7 @@
                 state.grid.isDirty = false;
                 
                 const value = Utils.elements.gridSize.value;
-                Utils.elements.gridContainer.style.gridTemplateColumns = \`repeat(\${value}, 1fr)\`;
+                Utils.elements.gridContainer.style.gridTemplateColumns = `repeat(${value}, 1fr)`;
                 
                 state.grid.selected = [];
                 state.grid.filtered = [];
@@ -2352,8 +2322,6 @@
                 const filesToRender = lazyState.allFiles.slice(lazyState.renderedCount, lazyState.renderedCount + lazyState.batchSize);
                 const oldSentinel = document.getElementById('grid-sentinel');
                 if (oldSentinel && lazyState.observer) { lazyState.observer.unobserve(oldSentinel); oldSentinel.remove(); }
-                
-                const fragment = document.createDocumentFragment();
                 filesToRender.forEach(file => {
                     const div = document.createElement('div');
                     div.className = 'grid-item'; div.dataset.fileId = file.id;
@@ -2366,11 +2334,9 @@
                         img.src = 'data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'150\' height=\'150\' viewBox=\'0 0 150 150\' fill=\'none\'%3E%3Crect width=\'150\' height=\'150\' fill=\'%23E5E7EB\'/%3E%3Cpath d=\'M65 60H85V90H65V60Z\' fill=\'%239CA3AF\'/%3E%3Ccircle cx=\'75\' cy=\'45\' r=\'10\' fill=\'%239CA3AF\'/%3E%3C/svg%3E';
                         img.classList.add('loaded');
                     };
-                    div.appendChild(img); 
-                    fragment.appendChild(div);
+                    div.addEventListener('click', e => this.toggleSelection(e, file.id));
+                    div.appendChild(img); container.appendChild(div);
                 });
-                container.appendChild(fragment);
-
                 container.querySelectorAll('.grid-image:not([src])').forEach(img => { img.src = img.dataset.src; });
                 lazyState.renderedCount += filesToRender.length;
                 if (lazyState.renderedCount < lazyState.allFiles.length) {
@@ -2380,20 +2346,17 @@
                     if (lazyState.observer) { lazyState.observer.observe(sentinel); }
                 }
             },
-            toggleSelection(fileId) {
+            toggleSelection(e, fileId) {
+                const gridItem = e.currentTarget;
                 const index = state.grid.selected.indexOf(fileId);
-                if (index === -1) { state.grid.selected.push(fileId); }
-                else { state.grid.selected.splice(index, 1); }
-                
-                const gridItem = Utils.elements.gridContainer.querySelector(\`[data-file-id="\${fileId}"]\`);
-                if(gridItem) gridItem.classList.toggle('selected');
-
+                if (index === -1) { state.grid.selected.push(fileId); gridItem.classList.add('selected'); }
+                else { state.grid.selected.splice(index, 1); gridItem.classList.remove('selected'); }
                 state.grid.isDirty = true; this.updateSelectionUI();
             },
             updateSelectionUI() {
                 const count = state.grid.selected.length;
                 const buttons = [Utils.elements.tagSelected, Utils.elements.moveSelected, Utils.elements.deleteSelected, Utils.elements.exportSelected, Utils.elements.folderSelected];
-                Utils.elements.selectionText.textContent = \`\${count} selected\`;
+                Utils.elements.selectionText.textContent = `${count} selected`;
                 buttons.forEach(btn => { if (btn) btn.disabled = (count === 0); });
             },
             selectAll() {
@@ -2470,7 +2433,7 @@
             hide() { Utils.hideModal('details-modal'); },
             switchTab(tabName) {
                 document.querySelectorAll('.tab-button').forEach(btn => btn.classList.toggle('active', btn.dataset.tab === tabName));
-                document.querySelectorAll('.tab-content').forEach(content => content.classList.toggle('active', content.id === \`tab-\${tabName}\`));
+                document.querySelectorAll('.tab-content').forEach(content => content.classList.toggle('active', content.id === `tab-${tabName}`));
                 this.currentTab = tabName;
             },
             populateAllTabs(file) {
@@ -2479,50 +2442,42 @@
             },
             populateInfoTab(file) {
                 Utils.elements.detailFilename.textContent = file.name || 'Unknown';
-                Utils.elements.detailFilenameLink.href = state.providerType === 'googledrive' ? \`https://drive.google.com/file/d/\${file.id}/view\` : file.downloadUrl || '#';
+                Utils.elements.detailFilenameLink.href = state.providerType === 'googledrive' ? `https://drive.google.com/file/d/${file.id}/view` : file.downloadUrl || '#';
                 Utils.elements.detailDate.textContent = file.modifiedTime ? new Date(file.modifiedTime).toLocaleString() : file.createdTime ? new Date(file.createdTime).toLocaleString() : 'Unknown';
                 Utils.elements.detailSize.textContent = file.size ? Utils.formatFileSize(file.size) : 'Unknown';
             },
             populateTagsTab(file) {
                 const tags = file.tags || [];
-                const container = Utils.elements.detailTags;
-                container.innerHTML = '';
-                
-                const fragment = document.createDocumentFragment();
+                Utils.elements.detailTags.innerHTML = '';
                 tags.forEach(tag => {
                     const tagEl = document.createElement('div');
                     tagEl.className = 'tag-item';
-                    tagEl.innerHTML = \`<span>\${tag}</span><button class="tag-remove" data-tag="\${tag}">×</button>\`;
-                    fragment.appendChild(tagEl);
+                    tagEl.innerHTML = `<span>${tag}</span><button class="tag-remove" data-tag="${tag}">×</button>`;
+                    Utils.elements.detailTags.appendChild(tagEl);
                 });
-                container.appendChild(fragment);
-
                 const addBtn = document.createElement('div');
                 addBtn.className = 'add-tag-btn'; addBtn.textContent = '+ Add Tag';
-                container.appendChild(addBtn);
+                addBtn.addEventListener('click', () => this.showAddTagInput());
+                Utils.elements.detailTags.appendChild(addBtn);
+                Utils.elements.detailTags.querySelectorAll('.tag-remove').forEach(btn => btn.addEventListener('click', (e) => this.removeTag(file, e.target.dataset.tag)));
             },
-            showAddTagInput(addButton) {
+            showAddTagInput() {
                 const input = document.createElement('input');
                 input.type = 'text'; input.className = 'tag-input'; input.placeholder = 'Enter tag name';
-                addButton.parentNode.insertBefore(input, addButton); 
-                addButton.style.display = 'none';
-                input.focus();
-                
-                const onFinish = () => {
-                    const tagName = input.value.trim();
-                    if (tagName) {
-                        const file = state.stacks[state.currentStack][state.currentStackPosition];
-                        const newTags = [...new Set([...(file.tags || []), tagName])];
-                        App.updateUserMetadata(file.id, { tags: newTags }); state.tags.add(tagName);
-                        this.populateTagsTab(file);
-                    } else {
-                        addButton.style.display = 'inline-flex';
-                    }
-                    input.remove();
-                };
-
-                input.addEventListener('keydown', (e) => { if (e.key === 'Enter') onFinish(); else if (e.key === 'Escape') { input.remove(); addButton.style.display = 'inline-flex';} });
-                input.addEventListener('blur', onFinish);
+                const addBtn = Utils.elements.detailTags.querySelector('.add-tag-btn');
+                addBtn.parentNode.insertBefore(input, addBtn); input.focus();
+                input.addEventListener('keydown', (e) => {
+                    if (e.key === 'Enter') {
+                        const tagName = input.value.trim();
+                        if (tagName) {
+                            const file = state.stacks[state.currentStack][state.currentStackPosition];
+                            const newTags = [...new Set([...(file.tags || []), tagName])];
+                            App.updateUserMetadata(file.id, { tags: newTags }); state.tags.add(tagName);
+                            this.populateTagsTab(file);
+                        }
+                    } else if (e.key === 'Escape') { input.remove(); }
+                });
+                input.addEventListener('blur', () => setTimeout(() => input.remove(), 100));
             },
             removeTag(file, tagToRemove) {
                 const newTags = (file.tags || []).filter(tag => tag !== tagToRemove);
@@ -2543,98 +2498,66 @@
                 this.setupStarRating('content', file.contentRating || 0);
             },
             setupStarRating(type, currentRating) {
-                const container = Utils.elements[\`\${type}Rating\`]; if (!container) return;
+                const container = Utils.elements[`${type}Rating`]; if (!container) return;
                 let rating = currentRating; const stars = container.querySelectorAll('.star');
                 const updateVisuals = r => stars.forEach((star, i) => star.classList.toggle('active', i < r));
                 container.onmouseleave = () => updateVisuals(rating);
                 stars.forEach((star, i) => {
                     star.onmouseenter = () => updateVisuals(i + 1);
+                    star.onclick = () => {
+                        rating = (i + 1 === rating) ? 0 : i + 1; updateVisuals(rating);
+                        const file = state.stacks[state.currentStack][state.currentStackPosition]; if (!file) return;
+                        const update = {}; update[`${type}Rating`] = rating;
+                        App.updateUserMetadata(file.id, update);
+                    };
                 });
                 updateVisuals(rating);
             },
-            handleStarClick(type, ratingValue) {
-                const container = Utils.elements[\`\${type}Rating\`];
-                let currentRating = state.stacks[state.currentStack][state.currentStackPosition][\`\${type}Rating\`] || 0;
-                const newRating = ratingValue === currentRating ? 0 : ratingValue;
-                
-                const file = state.stacks[state.currentStack][state.currentStackPosition];
-                if (!file) return;
-
-                const update = {};
-                update[\`\${type}Rating\`] = newRating;
-                App.updateUserMetadata(file.id, update);
-
-                const stars = container.querySelectorAll('.star');
-                stars.forEach((star, i) => star.classList.toggle('active', i < newRating));
-            },
             populateMetadataTab(file) {
-                const table = Utils.elements.metadataTable;
-                table.innerHTML = '';
+                Utils.elements.metadataTable.innerHTML = '';
                 if (file.metadataStatus !== 'loaded') {
-                    table.innerHTML = \`<tr><td colspan="2" style="text-align:center; padding: 20px;"><div class="spinner" style="margin: 0 auto;"></div></td></tr>\`;
+                    Utils.elements.metadataTable.innerHTML = `<tr><td colspan="2" style="text-align:center; padding: 20px;"><div class="spinner" style="margin: 0 auto;"></div></td></tr>`;
                     return;
                 }
                 const metadata = file.extractedMetadata || {};
-                const fragment = document.createDocumentFragment();
-                
-                if (Object.keys(metadata).length === 0) { this.addMetadataRow(fragment, 'Status', 'No embedded metadata found'); table.appendChild(fragment); return; }
-                
+                if (Object.keys(metadata).length === 0) { this.addMetadataRow('Status', 'No embedded metadata found', false); return; }
                 const priorityFields = ['prompt', 'Prompt', 'model', 'Model', 'seed', 'Seed', 'negative_prompt', 'Negative_Prompt', 'steps', 'Steps', 'cfg_scale', 'CFG_Scale'];
-                priorityFields.forEach(f => { if (metadata[f]) this.addMetadataRow(fragment, f, metadata[f], true); });
-                
+                priorityFields.forEach(f => { if (metadata[f]) this.addMetadataRow(f, metadata[f], true); });
                 const remaining = Object.entries(metadata).filter(([k,v]) => !priorityFields.includes(k) && !priorityFields.includes(k.toLowerCase()) && v);
                 if (priorityFields.some(f => metadata[f]) && remaining.length > 0) {
                     const sep = document.createElement('tr');
-                    sep.innerHTML = \`<td colspan="2" style="padding: 8px; background: #f0f0f0; text-align: center; font-size: 12px; color: #666; font-weight: bold;">Other Metadata</td>\`;
-                    fragment.appendChild(sep);
+                    sep.innerHTML = `<td colspan="2" style="padding: 8px; background: #f0f0f0; text-align: center; font-size: 12px; color: #666; font-weight: bold;">Other Metadata</td>`;
+                    Utils.elements.metadataTable.appendChild(sep);
                 }
-                remaining.forEach(([k, v]) => this.addMetadataRow(fragment, k, v, false));
-                
+                remaining.forEach(([k, v]) => this.addMetadataRow(k, v, false));
                 if (Object.keys(metadata).length > 0) {
                     const sep = document.createElement('tr');
-                    sep.innerHTML = \`<td colspan="2" style="padding: 8px; background: #f0f0f0; text-align: center; font-size: 12px; color: #666; font-weight: bold;">File Information</td>\`;
-                    fragment.appendChild(sep);
+                    sep.innerHTML = `<td colspan="2" style="padding: 8px; background: #f0f0f0; text-align: center; font-size: 12px; color: #666; font-weight: bold;">File Information</td>`;
+                    Utils.elements.metadataTable.appendChild(sep);
                 }
-                this.addMetadataRow(fragment, 'File Name', file.name || 'Unknown');
-                this.addMetadataRow(fragment, 'File Size', file.size ? Utils.formatFileSize(file.size) : 'Unknown');
-                this.addMetadataRow(fragment, 'MIME Type', file.mimeType || 'Unknown');
-                this.addMetadataRow(fragment, 'Created', file.createdTime ? new Date(file.createdTime).toLocaleString() : 'Unknown');
-                this.addMetadataRow(fragment, 'Modified', file.modifiedTime ? new Date(file.modifiedTime).toLocaleString() : 'Unknown');
-                this.addMetadataRow(fragment, 'Provider', state.providerType === 'googledrive' ? 'Google Drive' : 'OneDrive');
-
-                table.appendChild(fragment);
+                this.addMetadataRow('File Name', file.name || 'Unknown', false);
+                this.addMetadataRow('File Size', file.size ? Utils.formatFileSize(file.size) : 'Unknown', false);
+                this.addMetadataRow('MIME Type', file.mimeType || 'Unknown', false);
+                this.addMetadataRow('Created', file.createdTime ? new Date(file.createdTime).toLocaleString() : 'Unknown', false);
+                this.addMetadataRow('Modified', file.modifiedTime ? new Date(file.modifiedTime).toLocaleString() : 'Unknown', false);
+                this.addMetadataRow('Provider', state.providerType === 'googledrive' ? 'Google Drive' : 'OneDrive', false);
             },
-            addMetadataRow(fragment, key, value, needsCopyButton = false) {
+            addMetadataRow(key, value, needsCopyButton = false) {
                 const row = document.createElement('tr');
                 const fKey = key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
                 let fVal = String(value).length > 200 ? String(value).replace(/,\s+/g, ',\n').replace(/\.\s+/g, '.\n').trim() : String(value);
-                
-                const keyCell = document.createElement('td');
-                keyCell.className = 'key-cell';
-                keyCell.textContent = fKey;
-                
-                const valueCell = document.createElement('td');
-                valueCell.className = 'value-cell';
-                valueCell.textContent = fVal;
-
+                row.innerHTML = `<td class="key-cell">${fKey}</td><td class="value-cell">${fVal}</td>`;
                 if (needsCopyButton) {
                     const copyBtn = document.createElement('button');
                     copyBtn.className = 'copy-button copy-metadata'; copyBtn.textContent = 'Copy';
-                    copyBtn.dataset.value = String(value); copyBtn.title = \`Copy \${fKey}\`;
-                    valueCell.appendChild(copyBtn);
+                    copyBtn.dataset.value = String(value); copyBtn.title = `Copy ${fKey}`;
+                    row.cells[1].appendChild(copyBtn);
                 }
-                row.appendChild(keyCell);
-                row.appendChild(valueCell);
-                fragment.appendChild(row);
+                Utils.elements.metadataTable.appendChild(row);
             },
-            copyToClipboard(text, button) {
-                navigator.clipboard.writeText(text).then(() => {
-                    Utils.showToast('📋 Copied', 'success', true);
-                    button.classList.add('copied');
-                    const originalText = button.textContent;
-                    button.textContent = '✓';
-                    setTimeout(() => { button.classList.remove('copied'); button.textContent = originalText; }, 1000);
-                }).catch(() => Utils.showToast('❌ Failed to copy', 'error', true));
+            copyToClipboard(text) {
+                navigator.clipboard.writeText(text).then(() => Utils.showToast('📋 Copied', 'success', true))
+                .catch(() => Utils.showToast('❌ Failed to copy', 'error', true));
             }
         };
 
@@ -2646,36 +2569,51 @@
                 Utils.elements.actionTitle.textContent = title || 'Action';
                 Utils.elements.actionContent.innerHTML = content || '';
                 Utils.elements.actionConfirm.textContent = confirmText;
-                Utils.elements.actionConfirm.className = \`btn \${confirmClass}\`;
+                Utils.elements.actionConfirm.className = `btn ${confirmClass}`;
                 Utils.elements.actionConfirm.disabled = false;
                 Utils.elements.actionCancel.textContent = "Cancel";
                 Utils.showModal('action-modal');
             },
             hide() { Utils.hideModal('action-modal'); this.currentAction = null; },
             setupMoveAction() {
-                const content = \`<div style="display: flex; flex-direction: column; gap: 8px;">\${STACKS.map(s => \`<button class="move-option" data-stack="\${s}" style="width: 100%; text-align: left; padding: 8px 16px; border-radius: 6px; border: none; background: transparent; cursor: pointer;">\${STACK_NAMES[s]}</button>\`).join('')}</div>\`;
-                this.show('move', { title: 'Move to Stack', content, confirmText: 'Cancel' });
+                this.show('move', {
+                    title: 'Move to Stack',
+                    content: `<div style="display: flex; flex-direction: column; gap: 8px;">${STACKS.map(s => `<button class="move-option" data-stack="${s}" style="width: 100%; text-align: left; padding: 8px 16px; border-radius: 6px; border: none; background: transparent; cursor: pointer;">${STACK_NAMES[s]}</button>`).join('')}</div>`,
+                    confirmText: 'Cancel'
+                });
+                document.querySelectorAll('.move-option').forEach(opt => opt.addEventListener('click', () => this.executeMove(opt.dataset.stack)));
             },
             setupTagAction() {
-                const content = \`<label style="display: block; font-size: 14px; margin-bottom: 4px;">Enter tags (comma separated)</label><input type="text" id="modal-tag-input" class="tag-input" placeholder="nature, landscape"><div id="modal-tag-suggestions" style="display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px;">\${Array.from(state.tags).map(t => \`<button class="tag-suggestion" data-tag="\${t}" style="background-color: #e5e7eb; padding: 4px 8px; border-radius: 6px; font-size: 12px; border: none;">\${t}</button>\`).join('')}</div>\`;
-                this.show('tag', { title: 'Add Tags', content, confirmText: 'Apply' });
+                this.show('tag', {
+                    title: 'Add Tags',
+                    content: `<label style="display: block; font-size: 14px; margin-bottom: 4px;">Enter tags (comma separated)</label><input type="text" id="modal-tag-input" class="tag-input" placeholder="nature, landscape"><div id="modal-tag-suggestions" style="display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px;">${Array.from(state.tags).map(t => `<button class="tag-suggestion" data-tag="${t}" style="background-color: #e5e7eb; padding: 4px 8px; border-radius: 6px; font-size: 12px; border: none;">${t}</button>`).join('')}</div>`,
+                    confirmText: 'Apply'
+                });
+                document.querySelectorAll('.tag-suggestion').forEach(btn => btn.addEventListener('click', () => { const i=document.getElementById('modal-tag-input'); i.value += (i.value ? ', ' : '') + btn.dataset.tag; }));
             },
             setupDeleteAction() {
                 const count = state.grid.selected.length; const provider = state.providerType === 'googledrive' ? 'Google Drive' : 'OneDrive';
-                this.show('delete', { title: 'Confirm Delete', content: \`<p>Are you sure you want to move \${count} image(s) to your \${provider} trash?</p>\`, confirmText: \`Move to Trash\`, confirmClass: 'btn-danger'});
+                this.show('delete', {
+                    title: 'Confirm Delete',
+                    content: `<p>Are you sure you want to move ${count} image(s) to your ${provider} trash?</p>`,
+                    confirmText: `Move to Trash`, confirmClass: 'btn-danger'
+                });
             },
             setupExportAction() {
-                this.show('export', { title: 'Export to Spreadsheet', content: \`<p>This will start the Live Export process for \${state.grid.selected.length} selected image(s).</p>\`, confirmText: 'Begin Export' });
+                this.show('export', { title: 'Export to Spreadsheet', content: `<p>This will start the Live Export process for ${state.grid.selected.length} selected image(s).</p>`, confirmText: 'Begin Export' });
             },
             setupFocusStackSwitch() {
                 const available = STACKS.filter(s => s !== state.currentStack && state.stacks[s].length > 0);
-                let content = \`<div style="display: flex; flex-direction: column; gap: 8px;">\`;
-                content += available.length > 0 ? available.map(s => \`<button class="move-option" data-stack="\${s}" style="width: 100%; text-align: left; padding: 8px 16px; border: none; background: transparent;">\${STACK_NAMES[s]} (\${state.stacks[s].length})</button>\`).join('') : \`<p>No other stacks have images.</p>\`;
-                content += \`</div>\`;
+                let content = `<div style="display: flex; flex-direction: column; gap: 8px;">`;
+                if (available.length > 0) {
+                    content += available.map(s => `<button class="move-option" data-stack="${s}" style="width: 100%; text-align: left; padding: 8px 16px; border: none; background: transparent;">${STACK_NAMES[s]} (${state.stacks[s].length})</button>`).join('');
+                } else { content += `<p>No other stacks have images.</p>`; }
+                content += `</div>`;
                 this.show('focus-stack-switch', { title: 'Switch Stack', content, confirmText: 'Cancel' });
+                document.querySelectorAll('.move-option').forEach(opt => opt.addEventListener('click', () => { UI.switchToStack(opt.dataset.stack); this.hide(); }));
             },
             setupFolderMoveAction() {
-                this.show('folder-move', { title: 'Move to Different Folder', content: \`<p>This will move \${state.grid.selected.length} image(s) to a different folder.</p>\`, confirmText: 'Choose Destination' });
+                this.show('folder-move', { title: 'Move to Different Folder', content: `<p>This will move ${state.grid.selected.length} image(s) to a different folder.</p>`, confirmText: 'Choose Destination' });
             },
             async executeBulkAction(actionFn, successMsg, options = {}) {
                 const { refreshGrid = true, deselect = true } = options;
@@ -2688,7 +2626,7 @@
                     if (deselect) { Grid.deselectAll(); }
                     Core.updateStackCounts();
                 } catch (error) {
-                    Utils.showToast(\`Failed to process: \${error.message}\`, 'error', true);
+                    Utils.showToast(`Failed to process: ${error.message}`, 'error', true);
                 } finally {
                     btn.disabled = false; btn.textContent = originalText;
                 }
@@ -2703,7 +2641,7 @@
                         file.stackSequence = newSeq; state.stacks[targetStack].unshift(file);
                         state.stacks[targetStack] = Core.sortFiles(state.stacks[targetStack]);
                     }
-                }, \`Moved {count} images to \${targetStack}\`);
+                }, `Moved {count} images to ${targetStack}`);
             },
             async executeTag() {
                 const input = document.getElementById('modal-tag-input'); if (!input.value.trim()) return;
@@ -2714,7 +2652,7 @@
                         const newTags = [...new Set([...(file.tags || []), ...tags])];
                         App.updateUserMetadata(id, { tags: newTags }); tags.forEach(t => state.tags.add(t));
                     }
-                }, \`Tags added to {count} images\`, { refreshGrid: false });
+                }, `Tags added to {count} images`, { refreshGrid: false });
             },
             async executeDelete() {
                 await this.executeBulkAction(async (id) => {
@@ -2725,42 +2663,42 @@
                         const stackIdx = state.stacks[file.stack].findIndex(f => f.id === id);
                         if (stackIdx > -1) state.stacks[file.stack].splice(stackIdx, 1);
                     }
-                }, \`Moved {count} images to trash\`);
+                }, `Moved {count} images to trash`);
             },
             async executeExport() {
                 const files = state.grid.selected.map(id => state.imageFiles.find(f=>f.id===id)).filter(Boolean);
                 const total = files.length; const results = []; let failures = 0;
-                Utils.elements.actionTitle.textContent = \`Live Export: 0 of \${total}\`;
-                Utils.elements.actionContent.innerHTML = \`<div style="background:#111;border:1px solid #333;color:#eee;font-family:monospace;height:250px;overflow-y:scroll;padding:8px;" id="export-log"></div>\`;
+                Utils.elements.actionTitle.textContent = `Live Export: 0 of ${total}`;
+                Utils.elements.actionContent.innerHTML = `<div style="background:#111;border:1px solid #333;color:#eee;font-family:monospace;height:250px;overflow-y:scroll;padding:8px;" id="export-log"></div>`;
                 const logEl = document.getElementById('export-log');
                 Utils.elements.actionConfirm.disabled = true; Utils.elements.actionCancel.textContent = "Close";
                 const log = msg => { logEl.textContent += msg + '\n'; logEl.scrollTop = logEl.scrollHeight; };
-                log(\`Starting export for \${total} images...\`);
+                log(`Starting export for ${total} images...`);
                 for (let i = 0; i < files.length; i++) {
                     const file = files[i];
-                    Utils.elements.actionTitle.textContent = \`Live Export: \${i + 1} of \${total}\`;
-                    log(\`\n[\${i+1}/\${total}] Processing: \${file.name}\`);
+                    Utils.elements.actionTitle.textContent = `Live Export: ${i + 1} of ${total}`;
+                    log(`\n[${i+1}/${total}] Processing: ${file.name}`);
                     let metadata = {}, success = false;
                     for (let attempt = 1; attempt <= 3; attempt++) {
                         try {
                             const data = await state.metadataExtractor.fetchMetadata(file, true);
                             if (data.error) throw new Error(data.error);
-                            metadata = data; log(\`  ✅ Success\`); success = true; break;
+                            metadata = data; log(`  ✅ Success`); success = true; break;
                         } catch (error) {
-                            log(\`  ⚠️ Attempt \${attempt} failed: \${error.message}\`);
-                            if (attempt < 3) await new Promise(res => setTimeout(res, 1000 * attempt)); else { log(\`  ❌ FAILED.\`); failures++; }
+                            log(`  ⚠️ Attempt ${attempt} failed: ${error.message}`);
+                            if (attempt < 3) await new Promise(res => setTimeout(res, 1000 * attempt)); else { log(`  ❌ FAILED.`); failures++; }
                         }
                     }
                     results.push({ ...file, extractedMetadata: metadata });
                 }
-                log(\`\n-------------------\nExport complete. Success: \${total - failures}, Failed: \${failures}.\`);
+                log(`\n-------------------\nExport complete. Success: ${total - failures}, Failed: ${failures}.`);
                 if (results.length > 0) { state.export.exportData(results); log('CSV file generated.'); }
-                Utils.elements.actionTitle.textContent = \`Export Complete\`;
+                Utils.elements.actionTitle.textContent = `Export Complete`;
             },
             executeFolderMove() {
                 state.folderMoveMode = { active: true, files: [...state.grid.selected] };
                 this.hide(); Grid.close(); App.returnToFolderSelection();
-                Utils.showToast(\`Select destination folder for \${state.folderMoveMode.files.length} images\`, 'info', true);
+                Utils.showToast(`Select destination folder for ${state.folderMoveMode.files.length} images`, 'info', true);
             }
         };
 
@@ -2799,7 +2737,7 @@
             },
             showEdgeGlow(direction) {
                 this.edgeElements.forEach(edge => edge.classList.remove('active'));
-                const el = Utils.elements[\`edge\${direction.charAt(0).toUpperCase() + direction.slice(1)}\`];
+                const el = Utils.elements[`edge${direction.charAt(0).toUpperCase() + direction.slice(1)}`];
                 if (el) el.classList.add('active');
             },
             hideAllEdgeGlows() { this.edgeElements.forEach(edge => edge.classList.remove('active')); },
@@ -2907,30 +2845,31 @@
                     Core.updateStackCounts();
                     if (stack.length === 0) { this.toggleFocusMode(); Core.showEmptyState(); }
                     else { await Core.displayCurrentImage(); }
-                } catch (error) { Utils.showToast(\`Failed to delete \${file.name}\`, 'error', true); }
+                } catch (error) { Utils.showToast(`Failed to delete ${file.name}`, 'error', true); }
             }
         };
 
         const Folders = {
             async loadGoogleDriveFolders() {
                 const listEl = Utils.elements.gdriveFolderList;
-                listEl.innerHTML = \`<div style="display:flex;align-items:center;justify-content:center;padding:40px;"><div class="spinner"></div><span>Loading...</span></div>\`;
+                listEl.innerHTML = `<div style="display:flex;align-items:center;justify-content:center;padding:40px;"><div class="spinner"></div><span>Loading...</span></div>`;
                 try {
                     const folders = await state.provider.getFolders();
-                    if (folders.length === 0) { listEl.innerHTML = \`<div style="text-align:center;padding:40px;">No folders found</div>\`; return; }
+                    if (folders.length === 0) { listEl.innerHTML = `<div style="text-align:center;padding:40px;">No folders found</div>`; return; }
+                    listEl.innerHTML = '';
                     const fragment = document.createDocumentFragment();
                     folders.forEach(f => {
-                        const div = document.createElement('div'); div.className = 'folder-item'; div.dataset.folderId = f.id; div.dataset.folderName = f.name;
-                        div.innerHTML = \`<svg class="folder-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"></path></svg><div class="folder-info"><div class="folder-name">\${f.name}</div><div class="folder-date">\${new Date(f.modifiedTime).toLocaleDateString()}</div></div>\`;
+                        const div = document.createElement('div'); div.className = 'folder-item';
+                        div.dataset.folderId = f.id; div.dataset.folderName = f.name;
+                        div.innerHTML = `<svg class="folder-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"></path></svg><div class="folder-info"><div class="folder-name">${f.name}</div><div class="folder-date">${new Date(f.modifiedTime).toLocaleDateString()}</div></div>`;
                         fragment.appendChild(div);
                     });
-                    listEl.innerHTML = '';
                     listEl.appendChild(fragment);
-                } catch (error) { Utils.showToast(\`Error loading folders: \${error.message}\`, 'error', true); }
+                } catch (error) { Utils.showToast(`Error loading folders: ${error.message}`, 'error', true); }
             },
             async loadOneDriveFolders() {
                 const listEl = Utils.elements.onedriveFolderList;
-                listEl.innerHTML = \`<div style="display:flex;align-items:center;justify-content:center;padding:40px;"><div class="spinner"></div><span>Loading...</span></div>\`;
+                listEl.innerHTML = `<div style="display:flex;align-items:center;justify-content:center;padding:40px;"><div class="spinner"></div><span>Loading...</span></div>`;
                 try {
                     const folders = await state.provider.getFolders();
                     this.displayOneDriveFolders(folders); this.updateOneDriveNavigation();
@@ -2939,12 +2878,12 @@
             displayOneDriveFolders(folders) {
                 const listEl = Utils.elements.onedriveFolderList;
                 listEl.innerHTML = '';
-                if (folders.length === 0) { listEl.innerHTML = \`<div style="text-align:center;padding:40px;">No folders found here</div>\`; return; }
+                if (folders.length === 0) { listEl.innerHTML = `<div style="text-align:center;padding:40px;">No folders found here</div>`; return; }
                 const fragment = document.createDocumentFragment();
                 folders.forEach(f => {
                     const div = document.createElement('div'); div.className = 'folder-item';
                     div.dataset.folderId = f.id; div.dataset.folderName = f.name;
-                    div.innerHTML = \`<svg class="folder-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="color:\${f.hasChildren?'var(--accent)':'rgba(255,255,255,0.6)'};"><path d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"></path></svg><div class="folder-info"><div class="folder-name">\${f.name}</div><div class="folder-date">\${new Date(f.modifiedTime).toLocaleDateString()} • \${f.itemCount} items</div></div><div class="folder-actions">\${f.hasChildren?\`<button class="folder-action-btn drill-btn">Browse →</button>\`:''}<button class="folder-action-btn select-btn">Select</button></div>\`;
+                    div.innerHTML = `<svg class="folder-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="color:${f.hasChildren?'var(--accent)':'rgba(255,255,255,0.6)'};"><path d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"></path></svg><div class="folder-info"><div class="folder-name">${f.name}</div><div class="folder-date">${new Date(f.modifiedTime).toLocaleDateString()} • ${f.itemCount} items</div></div><div class="folder-actions">${f.hasChildren?`<button class="folder-action-btn drill-btn">Browse →</button>`:''}<button class="folder-action-btn select-btn">Select</button></div>`;
                     fragment.appendChild(div);
                 });
                 listEl.appendChild(fragment);
@@ -2962,14 +2901,14 @@
                         }
                         Utils.updateLoadingProgress(i + 1, files.length);
                     }
-                    Utils.showToast(\`Moved \${files.length} images to \${folderName}\`, 'success', true);
+                    Utils.showToast(`Moved ${files.length} images to ${folderName}`, 'success', true);
                     await state.fileCache.clearCacheForFolder(state.currentFolder.id);
                     state.folderMoveMode = { active: false, files: [] };
                     Core.initializeStacks(); Core.updateStackCounts(); App.returnToFolderSelection();
                 } catch (error) { Utils.showToast('Error moving files', 'error', true); App.returnToFolderSelection(); }
             },
             updateOneDriveNavigation() {
-                Utils.elements.onedriveFolderSubtitle.textContent = \`Current: \${state.provider.getCurrentPath()}\`;
+                Utils.elements.onedriveFolderSubtitle.textContent = `Current: ${state.provider.getCurrentPath()}`;
                 const btn = Utils.elements.onedriveRefreshFolders;
                 if (state.provider.canGoUp()) {
                     btn.textContent = '← Go Up';
@@ -2987,7 +2926,7 @@
                 Utils.elements.selectAnotherFolderBtn.style.display = 'block';
             },
             acknowledgePillCounter(stackName) {
-                const pill = document.getElementById(\`pill-\${stackName}\`);
+                const pill = document.getElementById(`pill-${stackName}`);
                 if (pill) {
                     pill.classList.remove('triple-ripple', 'glow-effect');
                     pill.offsetHeight; pill.classList.add('triple-ripple');
@@ -3058,7 +2997,7 @@
                             }, 1000);
                         }
                     } catch (error) {
-                        Utils.elements.gdriveAuthStatus.textContent = \`Authentication failed: \${error.message}\`;
+                        Utils.elements.gdriveAuthStatus.textContent = `Authentication failed: ${error.message}`;
                         Utils.elements.gdriveAuthStatus.className = 'status error';
                     } finally {
                         Utils.elements.gdriveAuthButton.disabled = false;
@@ -3086,7 +3025,7 @@
                             }, 1000);
                         }
                     } catch (error) {
-                        Utils.elements.onedriveAuthStatus.textContent = \`Authentication failed: \${error.message}\`;
+                        Utils.elements.onedriveAuthStatus.textContent = `Authentication failed: ${error.message}`;
                         Utils.elements.onedriveAuthStatus.className = 'status error';
                     } finally {
                         Utils.elements.onedriveAuthButton.disabled = false;
@@ -3189,7 +3128,7 @@
             },
             setupPillCounters() {
                 STACKS.forEach(stackName => {
-                    const pill = document.getElementById(\`pill-\${stackName}\`);
+                    const pill = document.getElementById(`pill-${stackName}`);
                     if (pill) {
                         pill.addEventListener('click', (e) => {
                             e.stopPropagation();
@@ -3208,7 +3147,7 @@
                 Utils.elements.gridSize.addEventListener('input', () => {
                     const value = Utils.elements.gridSize.value;
                     Utils.elements.gridSizeValue.textContent = value;
-                    Utils.elements.gridContainer.style.gridTemplateColumns = \`repeat(\${value}, 1fr)\`;
+                    Utils.elements.gridContainer.style.gridTemplateColumns = `repeat(${value}, 1fr)`;
                 });
                  Utils.elements.gridContainer.addEventListener('click', e => {
                     const item = e.target.closest('.grid-item');
@@ -3295,9 +3234,7 @@
                 state.export = new ExportSystem();
                 state.fileCache = new FileCache();
                 await state.fileCache.init();
-                state.metadataWorker = new MetadataWorkerManager();
                 state.metadataExtractor = new MetadataExtractor();
-                state.imagePreloader = new ImagePreloader();
                 Utils.showScreen('provider-screen');
                 Events.init();
                 Gestures.init();
