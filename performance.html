@@ -1292,6 +1292,9 @@
                 this.syncQueue = new Map();
                 this.pendingSyncFiles = new Set();
             }
+            getUserMetadata(fileId) {
+                 throw new Error("Provider must implement getUserMetadata");
+            }
             updateUserMetadata(fileId, updates) {
                 throw new Error("Provider must implement updateUserMetadata");
             }
@@ -1318,7 +1321,7 @@
                 const providerData = file ? file.appProperties : {};
                 return {
                     stack: providerData?.slideboxStack || 'in',
-                    tags: providerData?.slideboxTags ? providerData.slideboxTags.split(',').map(t => t.trim()) : [],
+                    tags: providerData?.slideboxTags ? providerData.slideboxTags.split(',').filter(Boolean) : [],
                     qualityRating: parseInt(providerData?.qualityRating) || 0,
                     contentRating: parseInt(providerData?.contentRating) || 0,
                     notes: providerData?.notes || '',
@@ -1328,7 +1331,9 @@
 
             updateUserMetadata(fileId, updates) {
                 const file = state.imageFiles.find(f => f.id === fileId);
-                if(file) Object.assign(file.appProperties, updates);
+                if (file) {
+                    Object.assign(file.appProperties, updates);
+                }
 
                 const ops = this.syncQueue.get(fileId) || [];
                 const newOps = Object.entries(updates).map(([key, value]) => {
@@ -1341,7 +1346,6 @@
                     return { op: 'replace', path: `/${newKey}`, value };
                 });
                 
-                // Simple merge: new operations replace old ones for the same path
                 const opMap = new Map();
                 [...ops, ...newOps].forEach(op => opMap.set(op.path, op));
                 this.syncQueue.set(fileId, Array.from(opMap.values()));
@@ -1438,6 +1442,8 @@
                 this.storeCredentials();
             }
             
+            async getAccessToken() { return this.accessToken; }
+
             async refreshAccessToken() {
                 if (!this.refreshToken || !this.clientSecret) { throw new Error('No refresh token'); }
                 const response = await fetch('https://oauth2.googleapis.com/token', {
@@ -1520,7 +1526,6 @@
             
             async deleteFile(fileId) {
                 await this.makeApiCall(`/files/${fileId}`, { method: 'PATCH', body: JSON.stringify({ trashed: true }) });
-                // We don't need to sync metadata for a trashed file. The action itself is the sync.
                 this.syncQueue.delete(fileId);
                 this.pendingSyncFiles.delete(fileId);
                 return true;
@@ -1547,7 +1552,7 @@
                 this.metadataCache = new Map();
                 this.initMSAL();
             }
-            
+
             getUserMetadata(fileId) {
                 return this.metadataCache.get(fileId) || { stack: 'in', tags: [], qualityRating: 0, contentRating: 0, notes: '', stackSequence: 0 };
             }
@@ -1561,7 +1566,6 @@
                 const nonDeleteOps = ops.filter(op => op.op !== 'delete');
                 const newOps = Object.entries(updates).map(([key, value]) => ({ op: 'replace', path: `/${key}`, value }));
 
-                // Simple merge: new operations replace old ones for the same path
                 const opMap = new Map();
                 [...nonDeleteOps, ...newOps].forEach(op => opMap.set(op.path, op));
                 this.syncQueue.set(fileId, Array.from(opMap.values()));
@@ -1847,10 +1851,9 @@
                                         };
                                         self.addEventListener('message', listener);
                                     });
-                                    // Re-queue this and all subsequent operations
                                     const remainingIds = fileIds.slice(fileIds.indexOf(fileId));
                                     remainingIds.forEach(id => { failedOperations[id] = operations[id]; });
-                                    break;
+                                    break; 
                                 } else {
                                     failedOperations[fileId] = fileOps;
                                     self.postMessage({ status: 'FILE_FAILURE', payload: { fileId, error: error.message } });
@@ -1869,7 +1872,7 @@
                                 const response = await makeApiCall(\`/me/drive/special/approot:/\${fileId}.json:/content\`, {}, 'onedrive');
                                 currentDoc = await response.json();
                             } catch (e) {
-                                if (!e.message.includes('404')) throw e; // 404 is fine, means new file
+                                if (!e.message.includes('404')) throw e;
                             }
                             
                             const newDoc = applyJsonPatches(currentDoc, fileOps);
@@ -1904,9 +1907,14 @@
                         const headers = { 'Authorization': \`Bearer \` + accessToken, ...options.headers };
                         const response = await fetch(url, { ...options, headers });
                         if (response.status === 401) throw new Error('TOKEN_EXPIRED');
-                        if (response.status === 404 && providerType === 'onedrive') throw new Error('404');
-                        if (!response.ok) {
-                           const errorText = await response.text(); throw new Error(\`\${response.status}: \${errorText}\`); 
+                        
+                        if (providerType === 'onedrive' && response.status === 404) {
+                            if (options.method !== 'DELETE') {
+                                throw new Error('404'); 
+                            }
+                        } else if (!response.ok) {
+                           const errorText = await response.text(); 
+                           throw new Error(\`\${response.status}: \${errorText}\`); 
                         }
                         return response;
                     }
@@ -1943,24 +1951,25 @@
                     case 'TOKEN_EXPIRED':
                         if (!this.tokenRequestPending) {
                             this.tokenRequestPending = true;
-                            this.provider.getAccessToken().then(newAccessToken => {
-                                this.worker.postMessage({ command: 'NEW_TOKEN', payload: { accessToken: newAccessToken } });
-                            }).catch(error => {
-                                Utils.showToast('Could not refresh session. Sync paused.', 'error', true);
-                                this.isSyncing = false;
-                            }).finally(() => {
-                                this.tokenRequestPending = false;
-                            });
+                            (async () => {
+                                try {
+                                    const newAccessToken = await this.provider.getAccessToken();
+                                    this.worker.postMessage({ command: 'NEW_TOKEN', payload: { accessToken: newAccessToken } });
+                                } catch (error) {
+                                    Utils.showToast('Could not refresh session. Sync paused.', 'error', true);
+                                    this.isSyncing = false;
+                                } finally {
+                                    this.tokenRequestPending = false;
+                                }
+                            })();
                         }
                         break;
                 }
             }
 
             addEventListeners() {
-                // Sync when page is hidden or closed
                 document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') this.triggerSync(); });
                 window.addEventListener('beforeunload', () => { if (this.provider.pendingSyncFiles.size > 0) this.triggerSync(); });
-                // Also trigger sync periodically
                 setInterval(() => this.triggerSync(), 30000);
             }
 
@@ -1968,7 +1977,7 @@
                 if (this.isSyncing || this.provider.pendingSyncFiles.size === 0) return;
                 
                 try {
-                    const accessToken = await this.provider.getAccessToken();
+                    const accessToken = await (state.providerType === 'googledrive' ? this.provider.refreshAccessToken() : this.provider.getAccessToken());
                     const operationsToSend = {};
                     this.provider.pendingSyncFiles.forEach(fileId => {
                         if (this.provider.syncQueue.has(fileId)) {
