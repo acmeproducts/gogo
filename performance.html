@@ -1335,7 +1335,8 @@
                     Object.assign(file.appProperties, updates);
                 }
 
-                const ops = this.syncQueue.get(fileId) || [];
+                const existingOps = this.syncQueue.get(fileId) || [];
+                
                 const newOps = Object.entries(updates).map(([key, value]) => {
                     let newKey;
                     switch(key) {
@@ -1347,7 +1348,7 @@
                 });
                 
                 const opMap = new Map();
-                [...ops, ...newOps].forEach(op => opMap.set(op.path, op));
+                [...existingOps, ...newOps].forEach(op => opMap.set(op.path, op));
                 this.syncQueue.set(fileId, Array.from(opMap.values()));
                 
                 this.pendingSyncFiles.add(fileId);
@@ -1562,8 +1563,9 @@
                 const newMetadata = { ...currentMetadata, ...updates };
                 this.metadataCache.set(fileId, newMetadata);
 
-                const ops = this.syncQueue.get(fileId) || [];
-                const nonDeleteOps = ops.filter(op => op.op !== 'delete');
+                const existingOps = this.syncQueue.get(fileId) || [];
+                const nonDeleteOps = existingOps.filter(op => op.op !== 'delete');
+                
                 const newOps = Object.entries(updates).map(([key, value]) => ({ op: 'replace', path: `/${key}`, value }));
 
                 const opMap = new Map();
@@ -1865,11 +1867,11 @@
                     
                     async function syncOneDriveFile(fileId, fileOps) {
                         if (fileOps.some(op => op.op === 'delete')) {
-                            await makeApiCall(\`/me/drive/special/approot:/\${fileId}.json\`, { method: 'DELETE' }, 'onedrive');
+                            await makeApiCall('/me/drive/special/approot:/' + fileId + '.json', { method: 'DELETE' }, 'onedrive');
                         } else {
                             let currentDoc = {};
                             try {
-                                const response = await makeApiCall(\`/me/drive/special/approot:/\${fileId}.json:/content\`, {}, 'onedrive');
+                                const response = await makeApiCall('/me/drive/special/approot:/' + fileId + '.json:/content', {}, 'onedrive');
                                 currentDoc = await response.json();
                             } catch (e) {
                                 if (!e.message.includes('404')) throw e;
@@ -1877,7 +1879,7 @@
                             
                             const newDoc = applyJsonPatches(currentDoc, fileOps);
                             
-                            await makeApiCall(\`/me/drive/special/approot:/\${fileId}.json:/content\`, { 
+                            await makeApiCall('/me/drive/special/approot:/' + fileId + '.json:/content', { 
                                 method: 'PUT', 
                                 headers: { 'Content-Type': 'application/json' }, 
                                 body: JSON.stringify(newDoc) 
@@ -1892,7 +1894,7 @@
                         });
 
                         if (Object.keys(properties).length > 0) {
-                             await makeApiCall(\`/files/\${fileId}\`, {
+                             await makeApiCall('/files/' + fileId, {
                                 method: 'PATCH',
                                 headers: { 'Content-Type': 'application/json' },
                                 body: JSON.stringify({ appProperties: properties })
@@ -1903,18 +1905,20 @@
                     async function makeApiCall(endpoint, options = {}, providerType) {
                         if (!accessToken) throw new Error('No access token in worker');
                         const apiBase = providerType === 'googledrive' ? googleApiBase : oneDriveApiBase;
-                        const url = \`\${apiBase}\${endpoint}\`;
-                        const headers = { 'Authorization': \`Bearer \` + accessToken, ...options.headers };
+                        const url = apiBase + endpoint;
+                        const headers = { 'Authorization': 'Bearer ' + accessToken, ...options.headers };
                         const response = await fetch(url, { ...options, headers });
                         if (response.status === 401) throw new Error('TOKEN_EXPIRED');
                         
                         if (providerType === 'onedrive' && response.status === 404) {
-                            if (options.method !== 'DELETE') {
-                                throw new Error('404'); 
+                            if (options.method === 'DELETE') {
+                                // Deleting a non-existent file is a success in this context.
+                            } else {
+                                throw new Error('404');
                             }
                         } else if (!response.ok) {
                            const errorText = await response.text(); 
-                           throw new Error(\`\${response.status}: \${errorText}\`); 
+                           throw new Error(response.status + ': ' + errorText); 
                         }
                         return response;
                     }
@@ -1930,7 +1934,7 @@
                     case 'SYNC_START':
                         this.isSyncing = true;
                         Utils.elements.backButtonSpinner.style.display = 'inline-block';
-                        Utils.showToast(\`Syncing \${state.providerType} metadata...\`, 'info');
+                        Utils.showToast('Syncing ' + state.providerType + ' metadata...', 'info');
                         break;
                     case 'SYNC_COMPLETE':
                         this.isSyncing = false;
@@ -1953,7 +1957,7 @@
                             this.tokenRequestPending = true;
                             (async () => {
                                 try {
-                                    const newAccessToken = await this.provider.getAccessToken();
+                                    const newAccessToken = await (state.providerType === 'googledrive' ? this.provider.refreshAccessToken() : this.provider.getAccessToken());
                                     this.worker.postMessage({ command: 'NEW_TOKEN', payload: { accessToken: newAccessToken } });
                                 } catch (error) {
                                     Utils.showToast('Could not refresh session. Sync paused.', 'error', true);
@@ -2752,10 +2756,14 @@
                 await this.executeBulkAction(async (id) => {
                     const file = state.imageFiles.find(f => f.id === id);
                     if (file) {
-                        const newSeq = Date.now(); App.moveFileToStack(id, targetStack, newSeq);
-                        const idx = state.stacks[file.stack].findIndex(f => f.id === id);
-                        if (idx > -1) state.stacks[file.stack].splice(idx, 1);
-                        file.stackSequence = newSeq; state.stacks[targetStack].unshift(file);
+                        const newSeq = Date.now();
+                        const oldStack = file.stack;
+                        App.moveFileToStack(id, targetStack, newSeq);
+                        
+                        const idx = state.stacks[oldStack].findIndex(f => f.id === id);
+                        if (idx > -1) state.stacks[oldStack].splice(idx, 1);
+
+                        state.stacks[targetStack].unshift(file);
                         state.stacks[targetStack] = Core.sortFiles(state.stacks[targetStack]);
                     }
                 }, `Moved {count} images to ${targetStack}`);
