@@ -494,8 +494,10 @@
         <div class="card">
             <h1 class="title">Google Drive</h1>
             <p class="subtitle">Connect to Google Drive</p>
-            <input type="password" id="gdrive-client-secret" class="input" placeholder="Enter Google Client Secret">
-            <button class="button" id="gdrive-auth-button">Connect Drive</button>
+            <form onsubmit="event.preventDefault(); document.getElementById('gdrive-auth-button').click(); return false;">
+                <input type="password" id="gdrive-client-secret" class="input" placeholder="Enter Google Client Secret" autocomplete="current-password">
+                <button type="button" class="button" id="gdrive-auth-button">Connect Drive</button>
+            </form>
             <button class="button" id="gdrive-back-button" style="background: rgba(128,128,128,0.3);">← Back</button>
             <div id="gdrive-auth-status" class="status info">Enter your client secret to continue</div>
         </div>
@@ -541,7 +543,7 @@
                 <button class="folder-button danger" id="onedrive-logout">Disconnect</button>
             </div>
         </div>
-        <div class="app-footer">Let us do THIS</div>
+        <div class="app-footer">orbital8-goji-2025-08-26 05:07 AM</div>
     </div>
     
     <!-- Loading Screen -->
@@ -555,7 +557,7 @@
             </div>
             <button class="button" id="cancel-loading" style="background: rgba(239, 68, 68, 0.8); margin-top: 16px;">Cancel</button>
         </div>
-        <div class="app-footer">Let us do THIS</div>
+        <div class="app-footer">orbital8-goji-2025-08-26 05:07 AM</div>
     </div>
     
     <!-- Main App Container -->
@@ -598,7 +600,7 @@
         </button>
         
         <div id="toast" class="toast"></div>
-        <div class="app-footer">Let us do THIS</div>
+        <div class="app-footer">orbital8-goji-2025-08-26 05:07 AM</div>
     </div>
     
     <!-- Enhanced Grid Modal -->
@@ -1451,12 +1453,10 @@
         class BaseProvider {
              constructor() {}
 
-            async getUserMetadata(fileId) {
-                // This will now be primarily a database lookup
+            async getUserMetadata(fileId, file = null) {
                 const dbMetadata = await state.dbManager.getMetadata(fileId);
                 if (dbMetadata) return dbMetadata;
-                
-                // Fallback for first-time load before DB is populated
+
                 let initialMetadata = {
                     id: fileId,
                     stack: 'in',
@@ -1464,18 +1464,20 @@
                     qualityRating: 0,
                     contentRating: 0,
                     notes: '',
-                    stackSequence: 0
+                    stackSequence: Date.now() 
                 };
-                
+
                 if (this.name === 'googledrive') {
-                    const file = state.imageFiles.find(f => f.id === fileId) || file;
-                    const providerData = file.appProperties || {};
-                    initialMetadata.stack = providerData.slideboxStack || 'in';
-                    initialMetadata.tags = providerData.slideboxTags ? providerData.slideboxTags.split(',').map(t => t.trim()) : [];
-                    initialMetadata.qualityRating = parseInt(providerData.qualityRating) || 0;
-                    initialMetadata.contentRating = parseInt(providerData.contentRating) || 0;
-                    initialMetadata.notes = providerData.notes || '';
-                    initialMetadata.stackSequence = parseInt(providerData.stackSequence) || 0;
+                    const fileData = file || state.imageFiles.find(f => f.id === fileId);
+                    if (fileData && fileData.appProperties) {
+                        const providerData = fileData.appProperties;
+                        initialMetadata.stack = providerData.slideboxStack || 'in';
+                        initialMetadata.tags = providerData.slideboxTags ? providerData.slideboxTags.split(',').map(t => t.trim()) : [];
+                        initialMetadata.qualityRating = parseInt(providerData.qualityRating) || 0;
+                        initialMetadata.contentRating = parseInt(providerData.contentRating) || 0;
+                        initialMetadata.notes = providerData.notes || '';
+                        initialMetadata.stackSequence = parseInt(providerData.stackSequence) || 0;
+                    }
                 }
 
                 await state.dbManager.saveMetadata(fileId, initialMetadata);
@@ -2276,7 +2278,7 @@
             },
             
             async processFileAndLoadMetadata(file) {
-                 const userMetadata = await state.provider.getUserMetadata(file.id);
+                 const userMetadata = await state.provider.getUserMetadata(file.id, file);
                  return { ...file, ...userMetadata, extractedMetadata: {}, metadataStatus: 'pending' };
             },
             
@@ -2348,7 +2350,7 @@
                 
                 // Tier 2: Update local database
                 const metadata = await state.dbManager.getMetadata(fileId) || {};
-                const updatedMetadata = { ...metadata, ...updates };
+                const updatedMetadata = { ...metadata, ...updates, id: fileId };
                 await state.dbManager.saveMetadata(fileId, updatedMetadata);
 
                 // Tier 3: Queue for sync
