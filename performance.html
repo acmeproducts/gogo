@@ -2928,7 +2928,7 @@
                     const file = files[i];
                     counter.textContent = `Processing: ${i + 1} / ${total}`;
                     try {
-                        const data = await state.metadataExtractor.fetchMetadata(file, true);
+                        const data = file.metadataStatus === 'loaded' ? file.extractedMetadata : await state.metadataExtractor.fetchMetadata(file, true);
                         if (data.error) throw new Error(data.error);
                         results.push({ ...file, extractedMetadata: data });
                     } catch (error) {
