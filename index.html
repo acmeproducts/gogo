@@ -576,7 +576,7 @@
         <p class="subtitle">Connect to Google Drive</p>
         <form onsubmit="event.preventDefault(); document.getElementById('gdrive-auth-button').click(); return false;">
             <input type="password" id="gdrive-client-secret" class="input" placeholder="Enter Google Client Secret" autocomplete="current-password">
-            <button class="button" id="gdrive-auth-button">Connect Drive</button>
+            <button type="submit" class="button" id="gdrive-auth-button">Connect Drive</button>
         </form>
         <button class="button" id="gdrive-back-button" style="background: rgba(128,128,128,0.3);">← Back</button>
         <div id="gdrive-auth-status" class="status info">Enter your client secret to continue</div>
@@ -2112,9 +2112,8 @@
             Utils.showScreen('provider-screen');
         },
         
-        async initializeWithProvider(providerType, folderId, folderName, providerInstance) {
+        async initializeWithProvider(providerType, folderId, folderName) {
             state.providerType = providerType;
-            state.provider = providerInstance;
             state.currentFolder = { id: folderId, name: folderName };
 
             if(state.syncManager) state.syncManager.start();
@@ -3195,7 +3194,7 @@
                 } catch(e) { Utils.showToast(`OneDrive login failed: ${e.message}`, 'error', true); }
             });
             elements.onedriveBackButton.addEventListener('click', () => App.backToProviderSelection());
-            elements.onedriveRefreshFolders.addEventListener('click', () => Folders.loadOneDriveFolders(true));
+            elements.onedriveRefreshFolders.addEventListener('click', () => Folders.loadOneDriveFolders(true, state.provider.currentPath[state.provider.currentPath.length-1]?.id || 'root', state.provider.currentPath));
             elements.onedriveBackToProvider.addEventListener('click', () => App.backToProviderSelection());
             elements.onedriveLogout.addEventListener('click', () => Folders.disconnectOneDrive());
             
@@ -3210,11 +3209,15 @@
             elements.selectAnotherStackBtn.addEventListener('click', () => Modal.setupFocusStackSwitch());
             elements.selectAnotherFolderBtn.addEventListener('click', () => App.returnToFolderSelection());
 
-            const deleteHandler = async () => {
-                const file = Core.getCurrentFile();
-                if (!file) return;
-                await App.deleteFile(file.id);
-                 Utils.showToast('Image moved to trash', 'info', true);
+            const deleteHandler = () => {
+                const file = Core.getCurrentFile(); if (!file) return;
+                Modal.show('confirm-delete', {
+                    title: 'Delete Image',
+                    content: `<p>Are you sure you want to move this image to the Trash stack?</p>`,
+                    confirmText: 'Move to Trash',
+                    confirmClass: 'btn-danger',
+                    onConfirm: () => Core.moveToStack('trash')
+                });
             };
             elements.focusDeleteBtn.addEventListener('click', deleteHandler);
             elements.normalDeleteBtn.addEventListener('click', deleteHandler);
@@ -3248,10 +3251,8 @@
             elements.folderSelected.addEventListener('click', () => Modal.setupFolderMoveAction());
             elements.actionCancel.addEventListener('click', () => Modal.hide());
             elements.actionConfirm.addEventListener('click', () => {
-                if (Modal.currentAction === 'delete') Modal.executeDelete();
-                if (Modal.currentAction === 'export') Modal.executeExport();
-                if (Modal.currentAction === 'tag') Modal.hide(); // Done button
-                if (Modal.currentAction === 'folder-move') Modal.executeFolderMove();
+                if (Modal.onConfirm) Modal.onConfirm();
+                if (Modal.currentAction !== 'export') Modal.hide();
             });
             
             document.querySelectorAll('.intensity-btn').forEach(btn => {
@@ -3345,7 +3346,8 @@
             if (state.provider) await state.provider.disconnect();
             App.backToProviderSelection();
         },
-        async loadOneDriveFolders(parentId = 'root', breadcrumb = []) {
+        async loadOneDriveFolders(forceRefresh = false, parentId = 'root', breadcrumb = []) {
+            if (forceRefresh) await state.dbManager.clearFolderData(parentId);
             const listEl = Utils.elements.onedriveFolderList;
             listEl.innerHTML = '<div style="text-align:center; padding: 20px;"><div class="spinner" style="margin: 0 auto;"></div></div>';
             try {
@@ -3366,7 +3368,7 @@
                         const newPath = [...state.provider.currentPath];
                         newPath.pop();
                         const parentId = newPath[newPath.length-1]?.id || 'root';
-                        this.loadOneDriveFolders(parentId, newPath);
+                        this.loadOneDriveFolders(false, parentId, newPath);
                     };
                 }
             }
@@ -3387,14 +3389,14 @@
                 
                 item.querySelector('.select-btn').onclick = () => {
                     if (state.folderMoveMode.active) this.handleFolderMoveSelection(folder.id, folder.name);
-                    else App.initializeWithProvider(state.providerType, folder.id, folder.name, state.provider);
+                    else App.initializeWithProvider(state.providerType, folder.id, folder.name);
                 };
                 if (isOneDrive) {
                     const drillBtn = item.querySelector('.drill-btn');
                     if(drillBtn) {
                        drillBtn.onclick = () => {
                             const newPath = [...state.provider.currentPath, {id: folder.id, name: folder.name}];
-                            this.loadOneDriveFolders(folder.id, newPath);
+                            this.loadOneDriveFolders(false, folder.id, newPath);
                         };
                     }
                 }
@@ -3432,12 +3434,11 @@
             }
             
             await state.dbManager.clearFolderData(originalFolderId);
-
             state.folderMoveMode = { active: false, files: [] };
             Utils.showToast(`${successCount} of ${fileIdsToMove.length} files moved successfully.`, 'success', true);
             state.syncManager.triggerSync();
             
-            Utils.showScreen(state.providerType === 'googledrive' ? 'gdrive-folder-screen' : 'onedrive-folder-screen');
+            App.returnToFolderSelection();
         }
     };
 
@@ -3447,12 +3448,12 @@
         try {
             state.dbManager = new DBManager(); 
             await state.dbManager.init();
-
+            
             state.visualCues = new VisualCueManager();
             state.haptic = new HapticFeedbackManager();
             state.export = new ExportSystem();
-            // state.metadataExtractor = new MetadataExtractor();
-            // state.extractionWorker = new ExtractionWorker(); state.extractionWorker.init();
+            state.extractionWorker = new ExtractionWorker(); 
+            state.extractionWorker.init();
             
             App.init();
             
@@ -3461,17 +3462,18 @@
                 if (window.opener) {
                      window.opener.postMessage({ type: 'GOOGLE_AUTH_SUCCESS', code: urlParams.get('code') }, window.location.origin);
                 }
-                // This page is a temporary redirect, close it.
-                // It might be blocked by COOP, but that's okay, user can close manually.
                 try { window.close(); } catch(e) { console.warn(e); }
                 return;
             }
 
             const providerType = localStorage.getItem('orbital8_provider');
-            if (providerType === 'googledrive') {
-                await App.selectGoogleDrive();
-            } else if (providerType === 'onedrive') {
-                await App.selectOneDrive();
+            const provider = providerType === 'googledrive' ? new GoogleDriveProvider() : new OneDriveProvider();
+
+            if (providerType && provider.isAuthenticated) {
+                 App.setProvider(provider);
+                 Utils.showScreen(providerType === 'googledrive' ? 'gdrive-folder-screen' : 'onedrive-folder-screen');
+                 if(providerType === 'googledrive') Folders.loadGoogleDriveFolders();
+                 else Folders.loadOneDriveFolders();
             } else {
                  Utils.showScreen('provider-screen');
             }
