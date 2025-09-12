@@ -1906,7 +1906,7 @@ class SyncManager {
             case 'SYNC_START':
                 this.isSyncing = true;
                 Utils.elements.backButtonSpinner.style.display = 'inline-block';
-                Utils.showToast(`Syncing ${payload.count} change(s)...`, 'info');
+                Utils.showToast(\`Syncing \${payload.count} change(s)...\`, 'info');
                 break;
             case 'SYNC_COMPLETE':
                 this.isSyncing = false;
@@ -1925,7 +1925,7 @@ class SyncManager {
                     op.retries = (op.retries || 0) + 1;
                     if (op.retries >= 3) {
                         await state.db.removeFromSyncQueue(payload.opId);
-                        console.error(`Sync failed permanently for op ${payload.opId}`, op);
+                        console.error(\`Sync failed permanently for op \${payload.opId}\`, op);
                     } else {
                         await state.db.updateSyncQueueItem(op);
                     }
@@ -2062,7 +2062,7 @@ class ExportSystem {
         const folderName = state.currentFolder.name.replace(/[^a-z0-9]/gi, '_').toLowerCase();
         const stackName = state.grid.stack;
         const date = new Date().toISOString().split('T')[0];
-        const filename = `orbital8_${folderName}_${stackName}_${date}.csv`;
+        const filename = `orbital8_\${folderName}_\${stackName}_\${date}.csv`;
         const csvContent = data.map(row => row.map(field => `"${String(field).replace(/"/g, '""')}"`).join(',')).join('\n');
         const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
         const url = URL.createObjectURL(blob);
@@ -2082,6 +2082,7 @@ const App = {
 
     async selectGoogleDrive() {
         state.providerType = 'googledrive';
+        localStorage.setItem('orbital8_provider', 'googledrive');
         Utils.showScreen('gdrive-auth-screen');
         const provider = new GoogleDriveProvider();
         if (provider.isAuthenticated) {
@@ -2093,6 +2094,7 @@ const App = {
     
     async selectOneDrive() {
         state.providerType = 'onedrive';
+        localStorage.setItem('orbital8_provider', 'onedrive');
         Utils.showScreen('onedrive-auth-screen');
         const provider = new OneDriveProvider();
         try {
@@ -2116,6 +2118,7 @@ const App = {
     backToProviderSelection() {
         if (state.syncManager) { state.syncManager.stop(); state.syncManager = null; }
         state.provider = null; state.providerType = null;
+        localStorage.removeItem('orbital8_provider');
         Utils.showScreen('provider-screen');
     },
     
@@ -2145,9 +2148,9 @@ const App = {
 
         // Tier 3: Cloud Provider API
         Utils.updateLoadingProgress(0, 0);
-        state.provider.onProgressCallback = (count) => Utils.updateLoadingProgress(count, 0, `Found ${count} images...`);
+        state.provider.onProgressCallback = (count) => Utils.updateLoadingProgress(count, 0, \`Found \${count} images...\`);
         try {
-            Utils.elements.loadingMessage.textContent = `Loading from ${state.currentFolder.name}...`;
+            Utils.elements.loadingMessage.textContent = \`Loading from \${state.currentFolder.name}...\`;
             const result = await state.provider.getFilesAndMetadata(folderId);
             const files = result.files || [];
             
@@ -2167,7 +2170,7 @@ const App = {
 
             this.finishImageLoading();
         } catch (error) {
-            Utils.showToast(`Error loading images: ${error.message}`, 'error', true);
+            Utils.showToast(\`Error loading images: \${error.message}\`, 'error', true);
             this.returnToFolderSelection();
         } finally {
             if (state.provider) { state.provider.onProgressCallback = null; }
@@ -2266,7 +2269,7 @@ const App = {
             const folderName = state.currentFolder.name || 'Unknown';
             const imageCount = state.imageFiles.length;
             const provider = state.providerType === 'googledrive' ? 'Google Drive' : 'OneDrive';
-            this.showTooltip(Utils.elements.backButton, `${provider}: ${folderName} • ${imageCount} images`);
+            this.showTooltip(Utils.elements.backButton, \`\${provider}: \${folderName} • \${imageCount} images\`);
         });
         Utils.elements.backButton.addEventListener('mouseleave', this.hideTooltip);
     },
@@ -2278,11 +2281,11 @@ const App = {
         tooltip.textContent = text;
         document.body.appendChild(tooltip);
         const rect = element.getBoundingClientRect();
-        tooltip.style.left = `${rect.left}px`;
-        tooltip.style.top = `${rect.bottom + 8}px`;
+        tooltip.style.left = \`\${rect.left}px\`;
+        tooltip.style.top = \`\${rect.bottom + 8}px\`;
         const tooltipRect = tooltip.getBoundingClientRect();
         if (tooltipRect.right > window.innerWidth) {
-            tooltip.style.left = `${window.innerWidth - tooltipRect.width - 10}px`;
+            tooltip.style.left = \`\${window.innerWidth - tooltipRect.width - 10}px\`;
         }
     },
     
@@ -2376,7 +2379,7 @@ const Core = {
     updateStackCounts() {
         STACKS.forEach(stack => {
             const count = state.stacks[stack].length;
-            const pill = document.getElementById(`pill-${stack}`);
+            const pill = document.getElementById(\`pill-\${stack}\`);
             if (pill) { pill.textContent = count > 999 ? ':)' : String(count); pill.classList.toggle('visible', count > 0); }
         });
     },
@@ -2405,7 +2408,7 @@ const Core = {
         await Utils.setImageSrc(Utils.elements.centerImage, file);
         const folderName = state.currentFolder.name;
         const truncatedFolder = folderName.length > 12 ? folderName.substring(0, 12) + '...' : folderName;
-        Utils.elements.filenameOverlay.textContent = `${truncatedFolder} / ${file.name.replace(/\.[^/.]+$/, "")}`;
+        Utils.elements.filenameOverlay.textContent = \`\${truncatedFolder} / \${file.name.replace(/\.[^/.]+$/, "")}\`;
         Utils.elements.filenameOverlay.href = state.export.getDirectImageURL(file);
         Utils.elements.filenameOverlay.classList.add('visible');
         Utils.elements.favoriteToggle.classList.toggle('active', !!file.favorite);
@@ -2418,18 +2421,18 @@ const Core = {
         const stack = state.stacks[state.currentStack];
         const total = stack.length;
         const current = total > 0 ? state.currentStackPosition + 1 : 0;
-        const text = `${current} / ${total}`;
+        const text = \`\${current} / \${total}\`;
         Utils.elements.focusImageCount.textContent = text;
         Utils.elements.normalImageCount.textContent = text;
         Utils.elements.focusStackName.textContent = STACK_NAMES[state.currentStack];
     },
     applyTransform() {
-        Utils.elements.centerImage.style.transform = `scale(${state.currentScale}) translate(${state.panOffset.x}px, ${state.panOffset.y}px)`;
+        Utils.elements.centerImage.style.transform = \`scale(\${state.currentScale}) translate(\${state.panOffset.x}px, \${state.panOffset.y}px)\`;
         Utils.elements.appContainer.classList.toggle('zoomed-in', state.currentScale > 1.1);
     },
     updateActiveProxTab() {
-        STACKS.forEach(stack => document.getElementById(`pill-${stack}`).classList.remove('active'));
-        document.getElementById(`pill-${state.currentStack}`).classList.add('active');
+        STACKS.forEach(stack => document.getElementById(\`pill-\${stack}\`).classList.remove('active'));
+        document.getElementById(\`pill-\${state.currentStack}\`).classList.add('active');
     },
     async moveToStack(targetStack) {
         const stack = state.stacks[state.currentStack];
@@ -2483,7 +2486,7 @@ const Grid = {
         state.grid.isDirty = false;
         
         const value = Utils.elements.gridSize.value;
-        Utils.elements.gridContainer.style.gridTemplateColumns = `repeat(${value}, 1fr)`;
+        Utils.elements.gridContainer.style.gridTemplateColumns = \`repeat(\${value}, 1fr)\`;
         
         state.grid.selected = [];
         state.grid.filtered = [];
@@ -2570,7 +2573,7 @@ const Grid = {
     updateSelectionUI() {
         const count = state.grid.selected.length;
         const buttons = [Utils.elements.tagSelected, Utils.elements.moveSelected, Utils.elements.deleteSelected, Utils.elements.exportSelected, Utils.elements.folderSelected];
-        Utils.elements.selectionText.textContent = `${count} selected`;
+        Utils.elements.selectionText.textContent = \`\${count} selected\`;
         buttons.forEach(btn => { if (btn) btn.disabled = (count === 0); });
     },
     selectAll() {
@@ -2658,7 +2661,7 @@ const Details = {
     hide() { Utils.hideModal('details-modal'); },
     switchTab(tabName) {
         document.querySelectorAll('.tab-button').forEach(btn => btn.classList.toggle('active', btn.dataset.tab === tabName));
-        document.querySelectorAll('.tab-content').forEach(content => content.classList.toggle('active', content.id === `tab-${tabName}`));
+        document.querySelectorAll('.tab-content').forEach(content => content.classList.toggle('active', content.id === \`tab-\${tabName}\`));
         this.currentTab = tabName;
     },
     populateAllTabs(file) {
@@ -2667,19 +2670,19 @@ const Details = {
     },
     populateInfoTab(file) {
         Utils.elements.detailFilename.textContent = file.name || 'Unknown';
-        Utils.elements.detailFilenameLink.href = state.providerType === 'googledrive' ? `https://drive.google.com/file/d/${file.id}/view` : file.downloadUrl || '#';
+        Utils.elements.detailFilenameLink.href = state.providerType === 'googledrive' ? \`https://drive.google.com/file/d/\${file.id}/view\` : file.downloadUrl || '#';
         Utils.elements.detailDate.textContent = file.modifiedTime ? new Date(file.modifiedTime).toLocaleString() : file.createdTime ? new Date(file.createdTime).toLocaleString() : 'Unknown';
         Utils.elements.detailSize.textContent = file.size ? Utils.formatFileSize(file.size) : 'Unknown';
     },
     populateTagsTab(file) {
         const container = Utils.elements.detailTagsContainer;
-        container.innerHTML = `
+        container.innerHTML = \`
             <div class="tag-section-label">Assigned Tags</div>
             <div class="tags-container" id="detail-tags-assigned"></div>
             <input type="text" class="tag-input" id="detail-tag-input" placeholder="Enter new tag and press Enter" style="margin-top: 16px;">
             <div class="tag-section-label" style="margin-top: 16px;">Recently Used Tags</div>
             <div class="tag-suggestions-container" id="detail-tags-suggestions"></div>
-        `;
+        \`;
         this.renderTags(file);
         container.querySelector('#detail-tag-input').addEventListener('keydown', e => {
             if (e.key === 'Enter') this.addTag(e.target.value);
@@ -2695,12 +2698,12 @@ const Details = {
 
         assignedContainer.innerHTML = '';
         if (assignedTags.length === 0) {
-            assignedContainer.innerHTML = `<span style="color: #9ca3af; font-size: 12px;">No tags assigned.</span>`;
+            assignedContainer.innerHTML = \`<span style="color: #9ca3af; font-size: 12px;">No tags assigned.</span>\`;
         } else {
             assignedTags.forEach(tag => {
                 const tagEl = document.createElement('div');
                 tagEl.className = 'tag-item';
-                tagEl.innerHTML = `<span>${tag}</span><button class="tag-remove" data-tag="${tag}">×</button>`;
+                tagEl.innerHTML = \`<span>\${tag}</span><button class="tag-remove" data-tag="\${tag}">×</button>\`;
                 tagEl.querySelector('.tag-remove').onclick = () => this.removeTag(tag);
                 assignedContainer.appendChild(tagEl);
             });
@@ -2752,7 +2755,7 @@ const Details = {
         this.setupStarRating('content', file.contentRating || 0);
     },
     setupStarRating(type, currentRating) {
-        const container = Utils.elements[`${type}Rating`]; if (!container) return;
+        const container = Utils.elements[\`\${type}Rating\`]; if (!container) return;
         let rating = currentRating; const stars = container.querySelectorAll('.star');
         const updateVisuals = r => stars.forEach((star, i) => star.classList.toggle('active', i < r));
         container.onmouseleave = () => updateVisuals(rating);
@@ -2761,7 +2764,7 @@ const Details = {
             star.onclick = async () => {
                 rating = (i + 1 === rating) ? 0 : i + 1; updateVisuals(rating);
                 const file = Core.getCurrentFile(); if (!file) return;
-                const update = {}; update[`${type}Rating`] = rating;
+                const update = {}; update[\`\${type}Rating\`] = rating;
                 await App.updateUserMetadata(file.id, update);
             };
         });
@@ -2770,7 +2773,7 @@ const Details = {
     populateMetadataTab(file) {
         Utils.elements.metadataTable.innerHTML = '';
         if (file.metadataStatus !== 'loaded') {
-            Utils.elements.metadataTable.innerHTML = `<tr><td colspan="2" style="text-align:center; padding: 20px;"><div class="spinner" style="margin: 0 auto;"></div></td></tr>`;
+            Utils.elements.metadataTable.innerHTML = \`<tr><td colspan="2" style="text-align:center; padding: 20px;"><div class="spinner" style="margin: 0 auto;"></div></td></tr>\`;
             return;
         }
         const metadata = file.extractedMetadata || {};
@@ -2784,13 +2787,13 @@ const Details = {
         const remaining = Object.entries(metadata).filter(([k,v]) => !priorityFields.includes(k) && !priorityFields.includes(k.toLowerCase()) && v);
         if (priorityFields.some(f => metadata[f]) && remaining.length > 0) {
             const sep = document.createElement('tr');
-            sep.innerHTML = `<td colspan="2" style="padding: 8px; background: #f0f0f0; text-align: center; font-size: 12px; color: #666; font-weight: bold;">Other Metadata</td>`;
+            sep.innerHTML = \`<td colspan="2" style="padding: 8px; background: #f0f0f0; text-align: center; font-size: 12px; color: #666; font-weight: bold;">Other Metadata</td>\`;
             Utils.elements.metadataTable.appendChild(sep);
         }
         remaining.forEach(([k, v]) => this.addMetadataRow(k, v, false));
         if (Object.keys(metadata).length > 0) {
             const sep = document.createElement('tr');
-            sep.innerHTML = `<td colspan="2" style="padding: 8px; background: #f0f0f0; text-align: center; font-size: 12px; color: #666; font-weight: bold;">File Information</td>`;
+            sep.innerHTML = \`<td colspan="2" style="padding: 8px; background: #f0f0f0; text-align: center; font-size: 12px; color: #666; font-weight: bold;">File Information</td>\`;
             Utils.elements.metadataTable.appendChild(sep);
         }
         this.addMetadataRow('File Name', file.name || 'Unknown', false);
@@ -2804,11 +2807,11 @@ const Details = {
         const row = document.createElement('tr');
         const fKey = key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
         let fVal = String(value).length > 200 ? String(value).replace(/,\s+/g, ',\n').replace(/\.\s+/g, '.\n').trim() : String(value);
-        row.innerHTML = `<td class="key-cell">${fKey}</td><td class="value-cell">${fVal}</td>`;
+        row.innerHTML = \`<td class="key-cell">\${fKey}</td><td class="value-cell">\${fVal}</td>\`;
         if (needsCopyButton) {
             const copyBtn = document.createElement('button');
             copyBtn.className = 'copy-button copy-metadata'; copyBtn.textContent = 'Copy';
-            copyBtn.dataset.value = String(value); copyBtn.title = `Copy ${fKey}`;
+            copyBtn.dataset.value = String(value); copyBtn.title = \`Copy \${fKey}\`;
             row.cells[1].appendChild(copyBtn);
         }
         Utils.elements.metadataTable.appendChild(row);
@@ -2827,7 +2830,7 @@ const Modal = {
         Utils.elements.actionTitle.textContent = title || 'Action';
         Utils.elements.actionContent.innerHTML = content || '';
         Utils.elements.actionConfirm.textContent = confirmText;
-        Utils.elements.actionConfirm.className = `btn ${confirmClass}`;
+        Utils.elements.actionConfirm.className = \`btn \${confirmClass}\`;
         Utils.elements.actionConfirm.disabled = false;
         Utils.elements.actionCancel.textContent = "Cancel";
         Utils.showModal('action-modal');
@@ -2836,21 +2839,21 @@ const Modal = {
     setupMoveAction() {
         this.show('move', {
             title: 'Move to Stack',
-            content: `<div style="display: flex; flex-direction: column; gap: 8px;">${STACKS.map(s => `<button class="move-option" data-stack="${s}" style="width: 100%; text-align: left; padding: 8px 16px; border-radius: 6px; border: none; background: transparent; cursor: pointer;">${STACK_NAMES[s]}</button>`).join('')}</div>`,
+            content: \`<div style="display: flex; flex-direction: column; gap: 8px;">\${STACKS.map(s => \`<button class="move-option" data-stack="\${s}" style="width: 100%; text-align: left; padding: 8px 16px; border-radius: 6px; border: none; background: transparent; cursor: pointer;">\${STACK_NAMES[s]}</button>\`).join('')}</div>\`,
             confirmText: 'Cancel'
         });
         document.querySelectorAll('.move-option').forEach(opt => opt.addEventListener('click', () => this.executeMove(opt.dataset.stack)));
     },
     setupTagAction() {
         this.show('tag', {
-            title: `Tag ${state.grid.selected.length} Item(s)`,
-            content: `
+            title: \`Tag \${state.grid.selected.length} Item(s)\`,
+            content: \`
                 <div class="tag-section-label">Assigned Tags (Common)</div>
                 <div class="tags-container" id="modal-tags-assigned"></div>
                 <input type="text" class="tag-input" id="modal-tag-input" placeholder="Enter new tag and press Enter" style="margin-top: 16px;">
                 <div class="tag-section-label" style="margin-top: 16px;">Recently Used Tags</div>
                 <div class="tag-suggestions-container" id="modal-tags-suggestions"></div>
-            `,
+            \`,
             confirmText: 'Apply'
         });
         this.renderBulkTags();
@@ -2874,7 +2877,7 @@ const Modal = {
         commonTags.forEach(tag => {
             const tagEl = document.createElement('div');
             tagEl.className = 'tag-item';
-            tagEl.innerHTML = `<span>${tag}</span><button class="tag-remove" data-tag="${tag}">×</button>`;
+            tagEl.innerHTML = \`<span>\${tag}</span><button class="tag-remove" data-tag="\${tag}">×</button>\`;
             tagEl.querySelector('.tag-remove').onclick = () => this.removeBulkTag(tag);
             assignedContainer.appendChild(tagEl);
         });
@@ -2915,25 +2918,25 @@ const Modal = {
         const count = state.grid.selected.length; const provider = state.providerType === 'googledrive' ? 'Google Drive' : 'OneDrive';
         this.show('delete', {
             title: 'Confirm Delete',
-            content: `<p>Are you sure you want to move ${count} image(s) to your ${provider} trash?</p>`,
-            confirmText: `Move to Trash`, confirmClass: 'btn-danger'
+            content: \`<p>Are you sure you want to move \${count} image(s) to your \${provider} trash?</p>\`,
+            confirmText: \`Move to Trash\`, confirmClass: 'btn-danger'
         });
     },
     setupExportAction() {
-        this.show('export', { title: 'Export to Spreadsheet', content: `<p>This will start the Live Export process for ${state.grid.selected.length} selected image(s).</p><p style="text-align:center; font-size: 24px; font-weight: bold; margin-top: 16px;" id="export-counter"></p>`, confirmText: 'Begin Export' });
+        this.show('export', { title: 'Export to Spreadsheet', content: \`<p>This will start the Live Export process for \${state.grid.selected.length} selected image(s).</p><p style="text-align:center; font-size: 24px; font-weight: bold; margin-top: 16px;" id="export-counter"></p>\`, confirmText: 'Begin Export' });
     },
     setupFocusStackSwitch() {
         const available = STACKS.filter(s => s !== state.currentStack && state.stacks[s].length > 0);
-        let content = `<div style="display: flex; flex-direction: column; gap: 8px;">`;
+        let content = \`<div style="display: flex; flex-direction: column; gap: 8px;">\`;
         if (available.length > 0) {
-            content += available.map(s => `<button class="move-option" data-stack="${s}" style="width: 100%; text-align: left; padding: 8px 16px; border: none; background: transparent;">${STACK_NAMES[s]} (${state.stacks[s].length})</button>`).join('');
-        } else { content += `<p>No other stacks have images.</p>`; }
-        content += `</div>`;
+            content += available.map(s => \`<button class="move-option" data-stack="\${s}" style="width: 100%; text-align: left; padding: 8px 16px; border: none; background: transparent;">\${STACK_NAMES[s]} (\${state.stacks[s].length})</button>\`).join('');
+        } else { content += \`<p>No other stacks have images.</p>\`; }
+        content += \`</div>\`;
         this.show('focus-stack-switch', { title: 'Switch Stack', content, confirmText: 'Cancel' });
         document.querySelectorAll('.move-option').forEach(opt => opt.addEventListener('click', () => { UI.switchToStack(opt.dataset.stack); this.hide(); }));
     },
     setupFolderMoveAction() {
-        this.show('folder-move', { title: 'Move to Different Folder', content: `<p>This will move ${state.grid.selected.length} image(s) to a different folder.</p>`, confirmText: 'Choose Destination' });
+        this.show('folder-move', { title: 'Move to Different Folder', content: \`<p>This will move \${state.grid.selected.length} image(s) to a different folder.</p>\`, confirmText: 'Choose Destination' });
     },
     async executeBulkAction(actionFn, successMsg, options = {}) {
         const { refreshGrid = true, deselect = true } = options;
@@ -2946,7 +2949,7 @@ const Modal = {
             if (deselect) { Grid.deselectAll(); }
             Core.updateStackCounts();
         } catch (error) {
-            Utils.showToast(`Failed to process: ${error.message}`, 'error', true);
+            Utils.showToast(\`Failed to process: \${error.message}\`, 'error', true);
         } finally {
             btn.disabled = false; btn.textContent = originalText;
         }
@@ -2965,10 +2968,10 @@ const Modal = {
                 state.stacks[targetStack].unshift(file);
                 state.stacks[targetStack] = Core.sortFiles(state.stacks[targetStack]);
             }
-        }, `Moved {count} images to ${targetStack}`);
+        }, \`Moved {count} images to \${targetStack}\`);
     },
     async executeTag() {
-        Utils.showToast(`Tags applied to ${state.grid.selected.length} images`, 'success', true);
+        Utils.showToast(\`Tags applied to \${state.grid.selected.length} images\`, 'success', true);
         this.hide();
         Grid.deselectAll();
     },
@@ -2981,7 +2984,7 @@ const Modal = {
                 const stackIdx = state.stacks[file.stack].findIndex(f => f.id === id);
                 if (stackIdx > -1) state.stacks[file.stack].splice(stackIdx, 1);
             }
-        }, `Moved {count} images to trash`);
+        }, \`Moved {count} images to trash\`);
     },
     async executeExport() {
         const files = state.grid.selected.map(id => state.imageFiles.find(f=>f.id===id)).filter(Boolean);
@@ -2991,7 +2994,7 @@ const Modal = {
         
         for (let i = 0; i < files.length; i++) {
             const file = files[i];
-            counter.textContent = `Processing: ${i + 1} / ${total}`;
+            counter.textContent = \`Processing: \${i + 1} / \${total}\`;
             try {
                 const data = file.metadataStatus === 'loaded' ? file.extractedMetadata : await state.metadataExtractor.fetchMetadata(file, true);
                 if (data.error) throw new Error(data.error);
@@ -3001,17 +3004,17 @@ const Modal = {
             }
         }
         
-        counter.textContent = `Success: ${total - failures}, Failed: ${failures}`;
+        counter.textContent = \`Success: \${total - failures}, Failed: \${failures}\`;
         if (results.length > 0) { 
             state.export.exportData(results);
             Utils.showToast('CSV file generated.', 'success', true);
         }
-        Utils.elements.actionTitle.textContent = `Export Complete`;
+        Utils.elements.actionTitle.textContent = \`Export Complete\`;
     },
     executeFolderMove() {
         state.folderMoveMode = { active: true, files: [...state.grid.selected] };
         this.hide(); Grid.close(); App.returnToFolderSelection();
-        Utils.showToast(`Select destination folder for ${state.folderMoveMode.files.length} images`, 'info', true);
+        Utils.showToast(\`Select destination folder for \${state.folderMoveMode.files.length} images\`, 'info', true);
     }
 };
 
@@ -3061,7 +3064,7 @@ const Gestures = {
     },
     showEdgeGlow(direction) {
         this.edgeElements.forEach(edge => edge.classList.remove('active'));
-        const el = Utils.elements[`edge${direction.charAt(0).toUpperCase() + direction.slice(1)}`];
+        const el = Utils.elements[\`edge\${direction.charAt(0).toUpperCase() + direction.slice(1)}\`];
         if (el) el.classList.add('active');
     },
     hideAllEdgeGlows() { this.edgeElements.forEach(edge => edge.classList.remove('active')); },
@@ -3221,7 +3224,7 @@ const UI = {
 
         elements.closeGrid.addEventListener('click', () => Grid.close());
         elements.gridSize.addEventListener('input', e => {
-            Utils.elements.gridContainer.style.gridTemplateColumns = `repeat(${e.target.value}, 1fr)`;
+            Utils.elements.gridContainer.style.gridTemplateColumns = \`repeat(\${e.target.value}, 1fr)\`;
             Utils.elements.gridSizeValue.textContent = e.target.value;
         });
         elements.selectAllBtn.addEventListener('click', () => Grid.selectAll());
@@ -3251,7 +3254,7 @@ const UI = {
 
     },
     acknowledgePillCounter(stackName) {
-        const pill = document.getElementById(`pill-${stackName}`);
+        const pill = document.getElementById(\`pill-\${stackName}\`);
         if (!pill) return;
         const effects = ['triple-ripple', 'glow-effect'];
         effects.forEach(cls => pill.classList.remove(cls));
@@ -3281,7 +3284,7 @@ const Folders = {
             App.setProvider(provider);
             Utils.showScreen('gdrive-folder-screen');
             this.loadGoogleDriveFolders();
-        } catch (error) { Utils.elements.gdriveAuthStatus.textContent = `Error: ${error.message}`; }
+        } catch (error) { Utils.elements.gdriveAuthStatus.textContent = \`Error: \${error.message}\`; }
     },
     async disconnectGoogleDrive() {
         if (state.provider) await state.provider.disconnect();
@@ -3294,7 +3297,7 @@ const Folders = {
         try {
             const folders = await state.provider.getFolders();
             this.renderFolderList(listEl, folders);
-        } catch (error) { listEl.innerHTML = `<div class="status error">Failed to load folders: ${error.message}</div>`; }
+        } catch (error) { listEl.innerHTML = \`<div class="status error">Failed to load folders: \${error.message}</div>\`; }
     },
     async disconnectOneDrive() {
         if (state.provider) await state.provider.disconnect();
@@ -3312,38 +3315,38 @@ const Folders = {
                 folders = await state.provider.getFolders();
             }
             this.renderFolderList(listEl, folders, true);
-        } catch (error) { listEl.innerHTML = `<div class="status error">Failed to load folders: ${error.message}</div>`; }
+        } catch (error) { listEl.innerHTML = \`<div class="status error">Failed to load folders: \${error.message}</div>\`; }
     },
     renderFolderList(listEl, folders, isOneDrive = false) {
         listEl.innerHTML = '';
         if (isOneDrive && state.provider.canGoUp()) {
             Utils.elements.onedriveFolderSubtitle.textContent = state.provider.getCurrentPath();
-            listEl.innerHTML += `
+            listEl.innerHTML += \`
                 <div class="folder-item" id="onedrive-parent-folder">
                     <span class="folder-info">../ (Up one level)</span>
-                </div>`;
+                </div>\`;
             document.getElementById('onedrive-parent-folder').onclick = async () => {
                 const folders = await state.provider.navigateToParent();
                 this.renderFolderList(listEl, folders, true);
             };
         }
         if (folders.length === 0 && !isOneDrive) {
-            listEl.innerHTML = `<div class="status info">No folders found.</div>`; return;
+            listEl.innerHTML = \`<div class="status info">No folders found.</div>\`; return;
         }
         folders.forEach(folder => {
             const item = document.createElement('div');
             item.className = 'folder-item';
-            item.innerHTML = `
+            item.innerHTML = \`
                 <svg class="folder-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"></path></svg>
                 <div class="folder-info">
-                    <div class="folder-name">${folder.name}</div>
-                    <div class="folder-date">Modified: ${new Date(folder.modifiedTime).toLocaleDateString()}</div>
+                    <div class="folder-name">\${folder.name}</div>
+                    <div class="folder-date">Modified: \${new Date(folder.modifiedTime).toLocaleDateString()}</div>
                 </div>
                 <div class="folder-actions">
-                    ${isOneDrive ? `<button class="folder-action-btn drill-btn" data-id="${folder.id}">Drill In</button>` : ''}
-                    <button class="folder-action-btn select-btn" data-id="${folder.id}" data-name="${folder.name}">Select</button>
+                    \${isOneDrive ? \`<button class="folder-action-btn drill-btn" data-id="\${folder.id}">Drill In</button>\` : ''}
+                    <button class="folder-action-btn select-btn" data-id="\${folder.id}" data-name="\${folder.name}">Select</button>
                 </div>
-            `;
+            \`;
             const selectBtn = item.querySelector('.select-btn');
             selectBtn.onclick = () => {
                 if (state.folderMoveMode.active) this.handleFolderMoveSelection(folder.id);
@@ -3365,7 +3368,7 @@ const Folders = {
     async handleFolderMoveSelection(targetFolderId) {
         const { files } = state.folderMoveMode;
         if (!files || files.length === 0) return;
-        Utils.showToast(`Moving ${files.length} images...`, 'info', true);
+        Utils.showToast(\`Moving \${files.length} images...\`, 'info', true);
         let failedCount = 0;
         await Promise.all(files.map(async fileId => {
             try {
@@ -3378,8 +3381,8 @@ const Folders = {
         }));
 
         Core.initializeStacks();
-        if (failedCount > 0) Utils.showToast(`${failedCount} files failed to move.`, 'error', true);
-        else Utils.showToast(`Successfully moved ${files.length} files.`, 'success', true);
+        if (failedCount > 0) Utils.showToast(\`\${failedCount} files failed to move.\`, 'error', true);
+        else Utils.showToast(\`Successfully moved \${files.length} files.\`, 'success', true);
         state.folderMoveMode = { active: false, files: [] };
         App.loadImages(state.currentFolder.id, state.currentFolder.name);
     }
@@ -3407,11 +3410,13 @@ window.onload = async () => {
             await App.selectGoogleDrive();
         } else if (providerType === 'onedrive') {
             await App.selectOneDrive();
+        } else {
+            Utils.showScreen('provider-screen');
         }
         
     } catch (error) {
         console.error("Initialization Error:", error);
-        Utils.elements.providerStatus.textContent = `Error: ${error.message}`;
+        Utils.elements.providerStatus.textContent = \`Error: \${error.message}\`;
         Utils.elements.providerStatus.classList.add('error');
     }
 };
