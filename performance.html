@@ -1,4 +1,4 @@
-<!-- orbital8-goji-2025-08-26 05:07 AM -->
+<!-- performance from Offline-First Image Gallery perf -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -485,7 +485,8 @@
             
             <div id="provider-status" class="status info">Choose your preferred cloud storage</div>
         </div>
-        <div class="app-footer">orbital8-goji-2025-08-26 05:07 AM</div>
+        <div class="app-footer">Offline-First Image Gallery perf
+</div>
     </div>
     
     <!-- Google Drive Auth Screen -->
@@ -510,7 +511,7 @@
             <button class="button" id="onedrive-back-button" style="background: rgba(128,128,128,0.3);">← Back</button>
             <div id="onedrive-auth-status" class="status info">Click to sign in with your Microsoft account</div>
         </div>
-        <div class="app-footer">orbital8-goji-2025-08-26 05:07 AM</div>
+        <div class="app-footer">Offline-First Image Gallery perf</div>
     </div>
     
     <!-- Google Drive Folder Screen -->
@@ -525,7 +526,7 @@
                 <button class="folder-button danger" id="gdrive-logout">Disconnect</button>
             </div>
         </div>
-        <div class="app-footer">orbital8-goji-2025-08-26 05:07 AM</div>
+        <div class="app-footer">Offline-First Image Gallery perf</div>
     </div>
     
     <!-- OneDrive Folder Screen -->
@@ -540,7 +541,7 @@
                 <button class="folder-button danger" id="onedrive-logout">Disconnect</button>
             </div>
         </div>
-        <div class="app-footer">orbital8-goji-2025-08-26 05:07 AM</div>
+        <div class="app-footer">Offline-First Image Gallery perf</div>
     </div>
     
     <!-- Loading Screen -->
@@ -554,7 +555,7 @@
             </div>
             <button class="button" id="cancel-loading" style="background: rgba(239, 68, 68, 0.8); margin-top: 16px;">Cancel</button>
         </div>
-        <div class="app-footer">orbital8-goji-2025-08-26 05:07 AM</div>
+        <div class="app-footer">Offline-First Image Gallery perf</div>
     </div>
     
     <!-- Main App Container -->
@@ -597,7 +598,7 @@
         </button>
         
         <div id="toast" class="toast"></div>
-        <div class="app-footer">orbital8-goji-2025-08-26 05:07 AM</div>
+        <div class="app-footer">Offline-First Image Gallery perf</div>
     </div>
     
     <!-- Enhanced Grid Modal -->
@@ -775,14 +776,7 @@
         
         const state = {
             provider: null, providerType: null,
-            // <STEP 1> CHANGE Replace fileCache with dbManager for the new data architecture
-            // fileCache: null,
-            dbManager: null,
-            // <STEP 1> ADD Add extractionWorker for background metadata parsing
-            extractionWorker: null,
-            // <STEP 1> COMMENT OUT old metadataExtractor as it is replaced by a worker
-            // metadataExtractor: null,
-            syncManager: null, // Manages background sync
+            dbManager: null, extractionWorker: null, syncManager: null, 
             visualCues: null, haptic: null, export: null, currentFolder: { id: null, name: '' },
             imageFiles: [], currentImageLoadId: null, currentStack: 'in', currentStackPosition: 0,
             isFocusMode: false, stacks: { in: [], out: [], priority: [], trash: [] },
@@ -913,16 +907,10 @@
             hideModal(id) { document.getElementById(id).classList.add('hidden'); },
             
             showToast(message, type = 'success', important = false) {
-                if (!important && Math.random() < 0.7) return;
                 const toast = this.elements.toast;
                 toast.textContent = message;
                 toast.className = `toast ${type} show`;
                 setTimeout(() => toast.classList.remove('show'), 3000);
-                
-                if (important && state.haptic) {
-                    const hapticType = type === 'error' ? 'error' : 'buttonPress';
-                    state.haptic.triggerFeedback(hapticType);
-                }
             },
             
             async setImageSrc(img, file) {
@@ -944,9 +932,8 @@
                     delete img.dataset.objectUrl;
                 }
 
-                // PROACTIVE FIX: Add a failsafe to prevent crashes if a malformed file object gets this far.
                 if (!file || !file.id) {
-                    console.error("CRITICAL: loadAuthenticatedImage called with invalid file object (missing ID).", file);
+                    console.error("[FIXED] loadAuthenticatedImage called with invalid file object (missing ID).", file);
                     setPlaceholder();
                     return;
                 }
@@ -975,21 +962,17 @@
                     img.dataset.objectUrl = objectUrl;
                     img.src = objectUrl;
                     if (img.classList.contains('grid-image')) img.classList.add('loaded');
-                    return;
 
                 } catch (error) {
-                    console.error(`Failed to load authenticated image from API endpoint ${downloadUrl}:`, error);
+                    console.error(`[FIXED] Failed to load authenticated image from API endpoint ${downloadUrl}:`, error);
+                    setPlaceholder();
                 }
-                
-                setPlaceholder();
             },
 
             getApiDownloadUrl(file) {
                 if (state.providerType === 'googledrive') {
-                    // This is the only CORS-compliant way to fetch file content via API
                     return `https://www.googleapis.com/drive/v3/files/${file.id}?alt=media`;
                 } else { // OneDrive
-                    // Use the direct download URL if available, otherwise fall back to the API content endpoint
                     return file.downloadUrl || `https://graph.microsoft.com/v1.0/me/drive/items/${file.id}/content`;
                 }
             },
@@ -1069,138 +1052,12 @@
             triggerFeedback(type) {
                 if (!this.isEnabled || !this.isSupported) return;
                 
-                const patterns = {
-                    swipe: [20, 40],
-                    pillTap: [35],
-                    buttonPress: [25],
-                    error: [100, 50, 100]
-                };
-                
+                const patterns = { swipe: [20, 40], pillTap: [35], buttonPress: [25], error: [100, 50, 100] };
                 const pattern = patterns[type];
-                if (pattern && navigator.vibrate) {
-                    navigator.vibrate(pattern);
-                }
+                if (pattern && navigator.vibrate) navigator.vibrate(pattern);
             }
         }
-
-        // <STEP 2> DELETE Delete the old FileCache class
-        /*
-        class FileCache {
-            constructor() {
-                this.db = null;
-            }
-            
-            async init() {
-                return new Promise((resolve, reject) => {
-                    const request = indexedDB.open('Orbital8Cache', 3);
-                    request.onerror = (event) => reject(event.target.error);
-                    request.onsuccess = (event) => {
-                        this.db = event.target.result;
-                        resolve();
-                    };
-                    request.onupgradeneeded = (event) => {
-                        const db = event.target.result;
-                        if (!db.objectStoreNames.contains('files')) {
-                            const fileStore = db.createObjectStore('files', { keyPath: 'folderId' });
-                            fileStore.createIndex('folderId', 'folderId', { unique: true });
-                        }
-                        if (!db.objectStoreNames.contains('metadata')) {
-                            db.createObjectStore('metadata', { keyPath: 'id' });
-                        }
-                    };
-                });
-            }
-            
-            async getCachedFiles(folderId) {
-                if (!this.db) return null;
-                return new Promise((resolve, reject) => {
-                    const transaction = this.db.transaction(['files'], 'readonly');
-                    const store = transaction.objectStore('files');
-                    const request = store.get(folderId);
-                    request.onsuccess = () => {
-                        if (request.result && this.isCacheValid(request.result.cached)) {
-                            resolve(request.result.files);
-                        } else {
-                            resolve(null);
-                        }
-                    };
-                    request.onerror = (event) => {
-                        console.warn('Failed to get cached files:', event.target.error);
-                        resolve(null);
-                    };
-                });
-            }
-            
-            async setCachedFiles(folderId, files) {
-                if (!this.db) return;
-                return new Promise((resolve, reject) => {
-                    const transaction = this.db.transaction(['files'], 'readwrite');
-                    const store = transaction.objectStore('files');
-                    const request = store.put({ folderId, files, cached: Date.now() });
-                    request.onsuccess = () => resolve();
-                    request.onerror = (event) => {
-                        console.warn('Failed to cache files:', event.target.error);
-                        reject(event.target.error);
-                    };
-                });
-            }
-            
-            async getMetadata(fileId) {
-                if (!this.db) return null;
-                 return new Promise((resolve, reject) => {
-                    const transaction = this.db.transaction(['metadata'], 'readonly');
-                    const store = transaction.objectStore('metadata');
-                    const request = store.get(fileId);
-                    request.onsuccess = () => {
-                         if (request.result) {
-                            resolve(request.result.metadata);
-                        } else {
-                            resolve(null);
-                        }
-                    };
-                    request.onerror = (event) => {
-                        console.warn('Failed to get cached metadata:', event.target.error);
-                        resolve(null);
-                    };
-                });
-            }
-            
-            async setMetadata(fileId, metadata) {
-                if (!this.db) return;
-                return new Promise((resolve, reject) => {
-                     const transaction = this.db.transaction(['metadata'], 'readwrite');
-                    const store = transaction.objectStore('metadata');
-                    const request = store.put({ id: fileId, metadata, cached: Date.now() });
-                    request.onsuccess = () => resolve();
-                    request.onerror = (event) => {
-                        console.warn('Failed to cache metadata:', event.target.error);
-                        reject(event.target.error);
-                    };
-                });
-            }
-            
-            isCacheValid(cachedTime) {
-                const CACHE_DURATION = 60 * 60 * 1000; // 1 hour
-                return (Date.now() - cachedTime) < CACHE_DURATION;
-            }
-            
-            async clearCacheForFolder(folderId) {
-                if (!this.db) return;
-                 return new Promise((resolve, reject) => {
-                    const transaction = this.db.transaction(['files'], 'readwrite');
-                    const store = transaction.objectStore('files');
-                    const request = store.delete(folderId);
-                    request.onsuccess = () => resolve();
-                    request.onerror = (event) => {
-                        console.warn('Failed to clear cache:', event.target.error);
-                        reject(event.target.error);
-                    };
-                });
-            }
-        }
-        */
-
-        // <STEP 2> ADD Add the new DBManager class for Tier 2 data persistence
+        
         class DBManager {
             constructor() { this.db = null; }
         
@@ -1320,7 +1177,6 @@
                         if (cursor) {
                             const item = cursor.value;
                             let match = true;
-                            // Add more filtering logic here based on params
                             if (params.query) {
                                 const regex = new RegExp(params.query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/\\\*/g, '.*').replace(/\\\?/g, '.'), 'i');
                                 const searchableText = [item.name || '', item.tags?.join(' ') || '', item.notes || ''].join(' ');
@@ -1356,128 +1212,9 @@
                 await folderCacheTx.done;
             }
         }
-
-        // <STEP 3> DELETE Delete the old MetadataExtractor class
-        /*
-        class MetadataExtractor {
-            constructor() {
-                this.abortController = null;
-            }
-            
-            abort() {
-                if (this.abortController) {
-                    this.abortController.abort();
-                    this.abortController = null;
-                }
-            }
-            
-            async extract(buffer) {
-                if (!buffer) return {};
-                
-                const metadata = {};
-                const view = new DataView(buffer);
-                
-                if (buffer.byteLength < 8) return {};
-                
-                let pos = 8;
-                
-                try {
-                    while (pos < buffer.byteLength - 12) {
-                        const chunkLength = view.getUint32(pos, false);
-                        pos += 4;
-                        
-                        let chunkType = '';
-                        for (let i = 0; i < 4; i++) {
-                            chunkType += String.fromCharCode(view.getUint8(pos + i));
-                        }
-                        pos += 4;
-                        
-                        if (chunkType === 'tEXt') {
-                            let keyword = '';
-                            let value = '';
-                            let nullFound = false;
-                            
-                            for (let i = 0; i < chunkLength; i++) {
-                                const byte = view.getUint8(pos + i);
-                                if (!nullFound) {
-                                    if (byte === 0) {
-                                        nullFound = true;
-                                    } else {
-                                        keyword += String.fromCharCode(byte);
-                                    }
-                                } else {
-                                    value += String.fromCharCode(byte);
-                                }
-                            }
-                            metadata[keyword] = value;
-                        } else if (chunkType === 'IHDR') {
-                            const width = view.getUint32(pos, false);
-                            const height = view.getUint32(pos + 4, false);
-                            metadata._dimensions = { width, height };
-                        } else if (chunkType === 'IEND') {
-                            break;
-                        }
-                        
-                        pos += chunkLength + 4;
-                        
-                        if (chunkLength > buffer.byteLength || pos > buffer.byteLength) {
-                            break;
-                        }
-                    }
-                } catch (error) {
-                    // Return what we have so far
-                }
-                
-                return metadata;
-            }
-            
-            async fetchMetadata(file, isForExport = false) {
-                if (file.mimeType !== 'image/png') {
-                    if (!isForExport) file.metadataStatus = 'loaded';
-                    return { error: 'Not a PNG file' };
-                }
-                
-                try {
-                    this.abortController = new AbortController();
-                    let response;
-
-                    if (state.providerType === 'googledrive') {
-                        response = await state.provider.makeApiCall(`/files/${file.id}?alt=media`, {
-                            headers: { 'Range': 'bytes=0-65535' },
-                            signal: this.abortController.signal
-                        }, false);
-                    } else {
-                        const accessToken = await state.provider.getAccessToken();
-                        response = await fetch(`https://graph.microsoft.com/v1.0/me/drive/items/${file.id}/content`, {
-                            headers: { 
-                                'Authorization': `Bearer ${accessToken}`,
-                                'Range': 'bytes=0-65535'
-                            },
-                            signal: this.abortController.signal
-                        });
-                    }
-                    
-                    if (!response.ok) {
-                        throw new Error(`HTTP ${response.status} ${response.statusText}`);
-                    }
-                    
-                    const buffer = await response.arrayBuffer();
-                    return await this.extract(buffer);
-                } catch (error) {
-                    if (error.name === 'AbortError') {
-                        return { error: 'Operation cancelled' };
-                    }
-                    return { error: error.message };
-                }
-            }
-        }
-        */
-
-        // <STEP 3> ADD Add the new ExtractionWorker class for Tier 3 background processing
+        
         class ExtractionWorker {
-            constructor() {
-                this.worker = null;
-            }
+            constructor() { this.worker = null; }
         
             init() {
                 const workerCode = `
@@ -1499,7 +1236,6 @@
                     }
 
                     async function extract(buffer) {
-                       // ... (extraction logic from old class) ...
                        if (!buffer) return {};
                         const metadata = {};
                         const view = new DataView(buffer);
@@ -1574,7 +1310,6 @@
                     if (file) {
                         file.extractedMetadata = metadata;
                         file.metadataStatus = 'loaded';
-                        // If details modal is open for this file, refresh it
                         if (!Utils.elements.detailsModal.classList.contains('hidden') && fileId === state.stacks[state.currentStack][state.currentStackPosition]?.id) {
                             Details.populateMetadataTab(file);
                         }
@@ -1592,22 +1327,6 @@
             stop() { if (this.worker) { this.worker.terminate(); this.worker = null; } }
         }
         
-        // <STEP 3> DELETE Delete the old MetadataSyncManager class
-        /*
-        class MetadataSyncManager {
-            constructor(provider) {
-                this.provider = provider;
-                this.worker = null;
-                this.isSyncing = false;
-                this.tokenRequestPending = false;
-                this.initWorker();
-                this.addEventListeners();
-            }
-            // ... (rest of old implementation) ...
-        }
-        */
-
-        // <STEP 3> ADD Add the new SyncManager class for Tier 3 background data synchronization
         class SyncManager {
             constructor() {
                 this.worker = null; this.isSyncing = false;
@@ -1648,7 +1367,6 @@
                              // Provider-specific logic would go here
                             self.postMessage({ status: 'FILE_SUCCESS', payload: { fileId } });
                         }
-                        // Clear queue after processing
                         await syncStore.clear();
                         self.postMessage({ status: 'SYNC_COMPLETE', payload: { allSynced: true } });
                     }
@@ -1672,7 +1390,7 @@
             }
 
             handleWorkerMessage(e) {
-                const { status, payload } = e.data;
+                const { status } = e.data;
                 switch(status) {
                     case 'SYNC_START': this.isSyncing = true; Utils.elements.backButtonSpinner.style.display = 'inline-block'; break;
                     case 'SYNC_COMPLETE': this.isSyncing = false; Utils.elements.backButtonSpinner.style.display = 'none'; Utils.showToast('All changes synced.', 'success'); break;
@@ -1695,15 +1413,7 @@
 
         class BaseProvider {
             constructor() { this.name = 'base'; }
-            // <STEP 6> CHANGE Remove old metadata methods, they will be handled by App.updateUserMetadata
-            /*
-            getUserMetadata(fileId) {
-                // ...
-            }
-            updateUserMetadata(fileId, updates) {
-                // ...
-            }
-            */
+            
             async getAccessToken() {
                 if (this.name === 'googledrive') {
                     if (!this.accessToken) await this.refreshAccessToken();
@@ -1898,7 +1608,7 @@
                 return { folders: [], files: allFiles };
             }
             
-            getUserMetadata(file) { // Changed to accept full file object
+            getUserMetadata(file) {
                 const providerData = file.appProperties || {};
                 return {
                     stack: providerData?.slideboxStack || 'in',
@@ -2216,7 +1926,6 @@
                 try {
                     if (await provider.authenticate()) {
                         state.provider = provider;
-                        // <STEP 1> CHANGE Ensure syncManager is only started if it exists
                         if (state.syncManager) {
                             state.syncManager.setProvider(provider);
                             state.syncManager.start();
@@ -2230,8 +1939,7 @@
             },
             
             backToProviderSelection() {
-                if (state.syncManager) { state.syncManager.stop(); }
-                // <STEP 1> ADD Add stop call for the new extraction worker
+                if (state.syncManager) state.syncManager.stop();
                 if (state.extractionWorker) state.extractionWorker.stop();
                 state.provider = null; state.providerType = null;
                 Utils.showScreen('provider-screen');
@@ -2243,17 +1951,15 @@
                 state.currentFolder.id = folderId;
                 state.currentFolder.name = folderName;
                 await this.loadImages(folderId, folderName);
-                this.switchToCommonUI();
             },
             
-            // <STEP 4> CHANGE Rewrite loadImages for cache-first performance
             async loadImages(folderId, folderName) {
                 const cachedData = await state.dbManager.getFolderCache(folderId);
                 
                 if (cachedData && cachedData.files && cachedData.files.length > 0) {
                     state.imageFiles = await state.dbManager.getMetadataForFolder(folderId);
                     this.finishImageLoading();
-                    this.refreshFolderInBackground(folderId); // Non-blocking refresh
+                    this.refreshFolderInBackground(folderId);
                 } else {
                     Utils.showScreen('loading-screen');
                     Utils.updateLoadingProgress(0, 0);
@@ -2288,18 +1994,15 @@
                 }
             },
             
-            // <STEP 4> ADD Add helper for finishing image loading for both cached and network paths
             finishImageLoading() {
                 Core.initializeStacks();
                 Core.initializeImageDisplay();
-                // Schedule background PNG metadata extraction
                 if(state.extractionWorker) {
                     state.extractionWorker.scheduleExtraction(state.imageFiles);
                 }
                 Utils.showScreen('app-container');
             },
 
-            // <STEP 4> ADD Add helper for refreshing folder data in the background
             async refreshFolderInBackground(folderId) {
                 try {
                     const result = await state.provider.getFilesAndMetadata(folderId);
@@ -2343,21 +2046,19 @@
                 };
                 const pngMeta = await state.dbManager.getPngMetadata(file.id);
 
-                // Reconstruct the metadata object safely, ensuring critical IDs are never overwritten.
                 const finalMetadata = {
                     ...baseMetadata,
                     ...providerUserMetadata,
                     ...providerFileProperties,
                     extractedMetadata: pngMeta ? pngMeta.data : {},
                     metadataStatus: pngMeta ? 'loaded' : 'pending',
-                    id: file.id, // Explicitly guarantee the correct ID from the source provider file
-                    folderId: folderId // Explicitly guarantee the correct folder ID
+                    id: file.id,
+                    folderId: folderId
                 };
 
                 return finalMetadata;
             },
             
-            // <STEP 5> ADD Add helper to create initial metadata records in the database
             async createInitialMetadata(file, folderId) {
                 const providerData = state.provider.getUserMetadata(file);
                 const metadata = {
@@ -2370,103 +2071,26 @@
                 return metadata;
             },
             
-            switchToCommonUI() {
-                Utils.showScreen('app-container');
-                this.setupProviderAwareNavigation();
-            },
-            
-            setupProviderAwareNavigation() {
-                Utils.elements.backButton.textContent = '← Folders';
-                Utils.elements.backButton.onclick = () => this.returnToFolderSelection();
-                this.setupFolderTooltips();
-            },
-            
-            setupFolderTooltips() {
-                Utils.elements.backButton.addEventListener('mouseenter', () => {
-                    const folderName = state.currentFolder.name || 'Unknown';
-                    const imageCount = state.imageFiles.length;
-                    const provider = state.providerType === 'googledrive' ? 'Google Drive' : 'OneDrive';
-                    this.showTooltip(Utils.elements.backButton, `${provider}: ${folderName} • ${imageCount} images`);
-                });
-                Utils.elements.backButton.addEventListener('mouseleave', this.hideTooltip);
-            },
-            
-            showTooltip(element, text) {
-                this.hideTooltip();
-                const tooltip = document.createElement('div');
-                tooltip.className = 'folder-tooltip';
-                tooltip.textContent = text;
-                document.body.appendChild(tooltip);
-                const rect = element.getBoundingClientRect();
-                tooltip.style.left = `${rect.left}px`;
-                tooltip.style.top = `${rect.bottom + 8}px`;
-                const tooltipRect = tooltip.getBoundingClientRect();
-                if (tooltipRect.right > window.innerWidth) {
-                    tooltip.style.left = `${window.innerWidth - tooltipRect.width - 10}px`;
-                }
-            },
-            
-            hideTooltip() {
-                const tooltip = document.querySelector('.folder-tooltip');
-                if (tooltip) tooltip.remove();
-            },
-            
             returnToFolderSelection() {
-                if (state.syncManager) { state.syncManager.triggerSync(); }
+                if (state.syncManager) state.syncManager.triggerSync();
                 Utils.showScreen(state.providerType === 'googledrive' ? 'gdrive-folder-screen' : 'onedrive-folder-screen');
             },
             
-            // <STEP 6> DELETE Delete old direct data manipulation methods
-            /*
-            moveFileToStack(fileId, targetStack, sequence) {
-                const file = state.imageFiles.find(f => f.id === fileId);
-                if (!file) throw new Error('File not found');
-                file.stack = targetStack;
-                file.stackSequence = sequence;
-                state.provider.moveFileToStack(fileId, targetStack, sequence);
-                return file;
-            },
-            
-            updateUserMetadata(fileId, updates) {
-                const file = state.imageFiles.find(f => f.id === fileId);
-                if (!file) throw new Error('File not found');
-                Object.assign(file, updates);
-                state.provider.updateUserMetadata(fileId, updates);
-            },
-            
-            async deleteFile(fileId) { return await state.provider.deleteFile(fileId); },
-            */
-
-            // <STEP 6> ADD Add the central updateUserMetadata function to decouple UI from network
             async updateUserMetadata(fileId, updates) {
                 const file = state.imageFiles.find(f => f.id === fileId);
                 if (!file) return;
 
-                // 1. Update in-memory state for immediate UI feedback
                 Object.assign(file, updates);
 
-                // 2. Get current record from DB
                 const currentMetadata = await state.dbManager.getMetadata(fileId);
                 if(!currentMetadata) return;
 
-                // 3. Apply updates and save back to DB
                 const newMetadata = { ...currentMetadata, ...updates, lastModifiedLocal: Date.now() };
                 await state.dbManager.saveMetadata(newMetadata);
                 
-                // 4. Queue the change for background sync
                 await state.dbManager.addToSyncQueue({ fileId, updates });
 
-                // 5. Trigger the sync process
                 if (state.syncManager) state.syncManager.triggerSync();
-            },
-            
-            async extractMetadataInBackground(pngFiles) {
-                 if(state.extractionWorker) state.extractionWorker.scheduleExtraction(pngFiles);
-            },
-            
-            async processFileMetadata(file) {
-                 if (file.metadataStatus === 'loaded' || file.metadataStatus === 'loading') return;
-                 // Now handled by the ExtractionWorker
             }
         };
 
@@ -2474,7 +2098,7 @@
             initializeStacks() {
                 STACKS.forEach(stack => { state.stacks[stack] = []; });
                 state.imageFiles.forEach(file => {
-                    if (file.isDeleted) return; // Don't show deleted files
+                    if (file.isDeleted) return;
                     const stack = file.stack || 'in';
                     state.stacks[STACKS.includes(stack) ? stack : 'in'].push(file);
                 });
@@ -2521,7 +2145,7 @@
                 Utils.elements.filenameOverlay.classList.add('visible');
                 state.currentScale = 1; state.panOffset = { x: 0, y: 0 };
                 this.applyTransform();
-                if (file.metadataStatus === 'pending') { App.extractMetadataInBackground([file]); }
+                if (file.metadataStatus === 'pending') { state.extractionWorker.scheduleExtraction([file]); }
                 this.updateImageCounters();
             },
             updateImageCounters() {
@@ -2542,7 +2166,6 @@
                 const image = stack[state.currentStackPosition];
                 if (!image) return;
                 
-                // <STEP 6> CHANGE Decouple UI action by using the central updateUserMetadata function
                 if (targetStack === state.currentStack) {
                     const otherImages = stack.filter(img => img.id !== image.id);
                     const minSeq = otherImages.length > 0 ? Math.min(...otherImages.map(img => img.stackSequence || 0)) : Date.now();
@@ -2708,13 +2331,7 @@
                 Core.updateStackCounts(); this.deselectAll();
             },
 
-            // <STEP 7> CHANGE Rewrite searchImages to use the powerful database query engine
             async searchImages(query) {
-                // const regex = new RegExp(query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/\\\*/g, '.*').replace(/\\\?/g, '.'), 'i');
-                // return state.stacks[state.grid.stack].filter(file => {
-                //     const searchableText = [file.name || '', file.tags?.join(' ') || '', file.notes || '', JSON.stringify(file.extractedMetadata || {})].join(' ');
-                //     return regex.test(searchableText);
-                // });
                 return await state.dbManager.queryMetadata({ folderId: state.currentFolder.id, query });
             },
             
@@ -2749,8 +2366,7 @@
                 if (!currentFile) return;
                 if (currentFile.metadataStatus !== 'loaded') {
                     this.populateMetadataTab(currentFile);
-                    // This now schedules extraction, doesn't block
-                    App.extractMetadataInBackground([currentFile]);
+                    state.extractionWorker.scheduleExtraction([currentFile]);
                 }
                 this.populateAllTabs(currentFile);
                 Utils.showModal('details-modal');
@@ -2798,7 +2414,6 @@
                         if (tagName) {
                             const file = state.stacks[state.currentStack][state.currentStackPosition];
                             const newTags = [...new Set([...(file.tags || []), tagName])];
-                            // <STEP 6> CHANGE Decouple UI action by using the central updateUserMetadata function
                             App.updateUserMetadata(file.id, { tags: newTags });
                             state.tags.add(tagName);
                             this.populateTagsTab(file);
@@ -2809,7 +2424,6 @@
             },
             removeTag(file, tagToRemove) {
                 const newTags = (file.tags || []).filter(tag => tag !== tagToRemove);
-                // <STEP 6> CHANGE Decouple UI action by using the central updateUserMetadata function
                 App.updateUserMetadata(file.id, { tags: newTags });
                 this.populateTagsTab(file);
             },
@@ -2821,7 +2435,6 @@
                 Utils.elements.detailNotes.addEventListener('blur', () => {
                     const currentFile = state.stacks[state.currentStack][state.currentStackPosition];
                     if (currentFile.notes !== Utils.elements.detailNotes.value) {
-                        // <STEP 6> CHANGE Decouple UI action by using the central updateUserMetadata function
                         App.updateUserMetadata(currentFile.id, { notes: Utils.elements.detailNotes.value });
                     }
                 });
@@ -2839,7 +2452,6 @@
                         rating = (i + 1 === rating) ? 0 : i + 1; updateVisuals(rating);
                         const file = state.stacks[state.currentStack][state.currentStackPosition]; if (!file) return;
                         const update = {}; update[`${type}Rating`] = rating;
-                        // <STEP 6> CHANGE Decouple UI action by using the central updateUserMetadata function
                         App.updateUserMetadata(file.id, update);
                     };
                 });
@@ -2951,7 +2563,6 @@
                 const { refreshGrid = true, deselect = true } = options;
                 const btn = Utils.elements.actionConfirm; btn.disabled = true; const originalText = btn.textContent; btn.textContent = 'Processing...';
                 try {
-                    // <STEP 6> CHANGE Decouple UI action by using the central updateUserMetadata function
                     const updates = state.grid.selected.map(id => actionFn(id));
                     await Promise.all(updates);
                     Utils.showToast(successMsg.replace('{count}', state.grid.selected.length), 'success', true);
@@ -2993,19 +2604,11 @@
                 }, `Moved {count} images to trash`);
             },
             async executeExport() {
-                const files = state.grid.selected.map(id => state.imageFiles.find(f=>f.id===id)).filter(Boolean);
-                const total = files.length; const results = []; let failures = 0;
-                Utils.elements.actionTitle.textContent = `Live Export: 0 of ${total}`;
-                Utils.elements.actionContent.innerHTML = `<div style="background:#111;border:1px solid #333;color:#eee;font-family:monospace;height:250px;overflow-y:scroll;padding:8px;" id="export-log"></div>`;
-                const logEl = document.getElementById('export-log');
-                Utils.elements.actionConfirm.disabled = true; Utils.elements.actionCancel.textContent = "Close";
-                const log = msg => { logEl.textContent += msg + '\n'; logEl.scrollTop = logEl.scrollHeight; };
-                log(`Starting export for ${total} images...`);
-                // This part still needs network, so it's an exception to the offline-first rule for this specific feature
-                for (let i = 0; i < files.length; i++) {
-                    const file = files[i];
-                     // ... (omitted for brevity, original logic is fine for this feature)
-                }
+                // This feature requires direct network access and is an exception to offline-first design
+                Utils.showToast('Exporting data...', 'info');
+                const filesToExport = state.grid.selected.map(id => state.imageFiles.find(f => f.id === id)).filter(Boolean);
+                await state.export.exportData(filesToExport);
+                this.hide();
             },
             executeFolderMove() {
                 state.folderMoveMode = { active: true, files: [...state.grid.selected] };
@@ -3149,7 +2752,6 @@
             async deleteCurrentImage() {
                 const stack = state.stacks[state.currentStack]; if (stack.length === 0) return;
                 const file = stack[state.currentStackPosition];
-                // <STEP 6> CHANGE Decouple UI action by using the central updateUserMetadata function
                 App.updateUserMetadata(file.id, { isDeleted: true, stack: 'trash' });
                 stack.splice(state.currentStackPosition, 1);
                 Core.updateStackCounts();
@@ -3204,15 +2806,12 @@
                 
                 const updates = filesToMove.map((fileId, i) => {
                     Utils.updateLoadingProgress(i + 1, filesToMove.length);
-                    // This is a special case as it changes folderId, a primary index key
-                    // The sync process for this is more complex (delete from old, add to new)
                     return App.updateUserMetadata(fileId, { folderId: folderId, stack: 'in' });
                 });
                 await Promise.all(updates);
 
                 Utils.showToast(`Moved ${filesToMove.length} images to ${folderName}`, 'success', true);
                 
-                // Clear old local data and reload
                 await state.dbManager.clearFolderData(state.currentFolder.id);
                 state.folderMoveMode = { active: false, files: [] };
                 Core.initializeStacks();
@@ -3254,9 +2853,7 @@
             updateActivePill() {
                 STACKS.forEach(stackName => {
                     const pill = document.getElementById(`pill-${stackName}`);
-                    if (pill) {
-                        pill.classList.toggle('active', stackName === state.currentStack);
-                    }
+                    if (pill) pill.classList.toggle('active', stackName === state.currentStack);
                 });
             }
         };
@@ -3480,18 +3077,13 @@
             }
         }
         
-        // <STEP 1> CHANGE Modify initApp to initialize new managers
         async function initApp() {
             try {
                 Utils.init();
                 state.visualCues = new VisualCueManager();
                 state.haptic = new HapticFeedbackManager();
                 state.export = new ExportSystem();
-
-                // <STEP 1> CHANGE Initialize the new DBManager and Workers
-                // state.fileCache = new FileCache();
-                // await state.fileCache.init();
-                // state.metadataExtractor = new MetadataExtractor();
+                
                 state.dbManager = new DBManager();
                 await state.dbManager.init();
                 state.syncManager = new SyncManager();
