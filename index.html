@@ -1569,14 +1569,14 @@
                 contentRating: parseInt(providerData?.contentRating, 10) || 0,
                 notes: providerData?.notes || '',
                 isFavorite: providerData?.isFavorite === 'true',
-                stackSequence: parseInt(providerData?.stackSequence, 10) || 0
+                stackSequence: parseInt(providerData?.stackSequence, 10) || Date.parse(file.createdTime)
             };
         }
 
         async moveFileToFolder(fileId, targetFolderId) {
             const file = await this.makeApiCall(`/files/${fileId}?fields=parents`);
             const previousParents = file.parents.join(',');
-            await this.makeApiCall(`/files/${fileId}?addParents=${targetFolderId}&removeParents=${previousParents}&fields=id,parents`, { method: 'PATCH' });
+            await this.makeApiCall(`/files/${fileId}?addParents=${targetFolderId}&removeParents=${previousParents}&fields=id,parents`, { method: 'PATCH' }, false);
             return true;
         }
         
@@ -1673,7 +1673,8 @@
 
         async getFiles(folderId = 'root') {
             const allFiles = [];
-            let endpoint = `/me/drive/items/${folderId}/children?$select=id,name,mimeType,size,createdDateTime,lastModifiedDateTime,thumbnails,@microsoft.graph.downloadUrl,file`;
+            const selectFields = 'id,name,mimeType,size,createdDateTime,lastModifiedDateTime,thumbnails,@microsoft.graph.downloadUrl,file';
+            let endpoint = `/me/drive/items/${folderId}/children?$select=${selectFields}`;
             let nextLink = `${this.apiBase}${endpoint}`;
             while(nextLink) {
                 const response = await this.makeApiCall(nextLink.replace(this.apiBase, ''));
@@ -1693,7 +1694,10 @@
         }
         
         getUserMetadata(file) {
-            return { stack: 'in', tags: [], qualityRating: 0, contentRating: 0, notes: '', isFavorite: false, stackSequence: 0 };
+            return { 
+                stack: 'in', tags: [], qualityRating: 0, contentRating: 0, notes: '', 
+                isFavorite: false, stackSequence: Date.parse(file.createdTime) 
+            };
         }
         
         async moveFileToFolder(fileId, targetFolderId) {
@@ -2310,7 +2314,7 @@
             
             // 2. Save to local DB (Tier 2)
             const currentMeta = await state.dbManager.getMetadata(fileId) || {};
-            const newMeta = { ...currentMeta, ...updates };
+            const newMeta = { ...currentMeta, ...updates, id: fileId, folderId: file.folderId };
             await state.dbManager.saveMetadata(fileId, newMeta);
             
             // 3. Queue for sync (Tier 3)
@@ -2385,7 +2389,7 @@
                     file.tags.forEach(tag => state.allTags.add(tag));
                 }
             });
-            STACKS.forEach(stack => { state.stacks[stack] = this.sortFiles(state.stacks[stack]); });
+            STACKS.forEach(stack => { state.stacks[stack] = this.sortFiles(state.stacks[stack] || []); });
             this.updateStackCounts();
         },
         sortFiles(files) {
@@ -3405,8 +3409,11 @@
             Utils.showScreen('loading-screen');
             Utils.updateLoadingProgress(0, fileIdsToMove.length, `Moving ${fileIdsToMove.length} files to ${targetFolderName}...`);
 
+            const originalFolderId = state.currentFolder.id;
             let successCount = 0;
-            const movePromises = fileIdsToMove.map(async (fileId, index) => {
+
+            for(let i=0; i<fileIdsToMove.length; i++) {
+                const fileId = fileIdsToMove[i];
                 try {
                     await state.provider.moveFileToFolder(fileId, targetFolderId);
                     
@@ -3416,19 +3423,18 @@
                         await state.dbManager.saveMetadata(fileId, newMeta);
                         await state.dbManager.addToSyncQueue({
                             type: 'METADATA_UPDATE', provider: state.providerType, fileId,
-                            payload: { stack: 'in', folderId: targetFolderId }
+                            payload: { folderId: targetFolderId, stack: 'in' } // explicitly update folderId in sync
                         });
                     }
                     successCount++;
                 } catch (e) { console.error(`Failed to move file ${fileId}:`, e); } 
-                finally { Utils.updateLoadingProgress(index + 1, fileIdsToMove.length); }
-            });
-            await Promise.all(movePromises);
+                finally { Utils.updateLoadingProgress(i + 1, fileIdsToMove.length); }
+            }
             
-            await state.dbManager.clearFolderData(state.currentFolder.id);
+            await state.dbManager.clearFolderData(originalFolderId);
 
             state.folderMoveMode = { active: false, files: [] };
-            Utils.showToast(`${successCount} of ${fileIdsToMove.length} files moved.`, 'success', true);
+            Utils.showToast(`${successCount} of ${fileIdsToMove.length} files moved successfully.`, 'success', true);
             state.syncManager.triggerSync();
             
             Utils.showScreen(state.providerType === 'googledrive' ? 'gdrive-folder-screen' : 'onedrive-folder-screen');
@@ -3445,7 +3451,7 @@
             state.visualCues = new VisualCueManager();
             state.haptic = new HapticFeedbackManager();
             state.export = new ExportSystem();
-            state.metadataExtractor = new MetadataExtractor();
+            // state.metadataExtractor = new MetadataExtractor();
             // state.extractionWorker = new ExtractionWorker(); state.extractionWorker.init();
             
             App.init();
@@ -3455,7 +3461,9 @@
                 if (window.opener) {
                      window.opener.postMessage({ type: 'GOOGLE_AUTH_SUCCESS', code: urlParams.get('code') }, window.location.origin);
                 }
-                window.close();
+                // This page is a temporary redirect, close it.
+                // It might be blocked by COOP, but that's okay, user can close manually.
+                try { window.close(); } catch(e) { console.warn(e); }
                 return;
             }
 
@@ -3471,8 +3479,10 @@
         } catch (error) {
             console.error("Initialization Error:", error);
             const statusEl = document.getElementById('provider-status');
-            statusEl.textContent = `Error: ${error.message}`;
-            statusEl.className = 'status error';
+            if (statusEl) {
+                statusEl.textContent = `Error: ${error.message}`;
+                statusEl.className = 'status error';
+            }
         }
     };
 </script>
