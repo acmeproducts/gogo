@@ -944,6 +944,13 @@
                     delete img.dataset.objectUrl;
                 }
 
+                // PROACTIVE FIX: Add a failsafe to prevent crashes if a malformed file object gets this far.
+                if (!file || !file.id) {
+                    console.error("CRITICAL: loadAuthenticatedImage called with invalid file object (missing ID).", file);
+                    setPlaceholder();
+                    return;
+                }
+
                 const downloadUrl = this.getApiDownloadUrl(file);
                 if (!downloadUrl) {
                     setPlaceholder();
@@ -953,7 +960,6 @@
                 try {
                     if (loadId && state.currentImageLoadId !== loadId) return;
 
-                    // Use the provider's built-in makeApiCall for robustness (handles token refresh)
                     const response = await state.provider.makeApiCall(downloadUrl, {}, false);
 
                     if (!response.ok) throw new Error(`HTTP ${response.status}`);
@@ -972,7 +978,7 @@
                     return;
 
                 } catch (error) {
-                    console.error(`[FIXED] Failed to load authenticated image from API endpoint ${downloadUrl}:`, error);
+                    console.error(`Failed to load authenticated image from API endpoint ${downloadUrl}:`, error);
                 }
                 
                 setPlaceholder();
@@ -2326,25 +2332,29 @@
                 }
             },
             
-            // <STEP 5> CHANGE Rewrite processFileWithProviderMetadata to use the local DB as the source of truth
             async processFileWithProviderMetadata(file, folderId) {
-                let metadata = await state.dbManager.getMetadata(file.id);
-                if (!metadata) {
-                    metadata = await this.createInitialMetadata(file, folderId);
-                }
-                // Always merge with latest provider info, but keep local user edits if newer.
-                const providerMetadata = state.provider.getUserMetadata(file);
-                Object.assign(metadata, providerMetadata, {
+                const existingMetadata = await state.dbManager.getMetadata(file.id);
+                const baseMetadata = existingMetadata || await this.createInitialMetadata(file, folderId);
+                const providerUserMetadata = state.provider.getUserMetadata(file);
+                const providerFileProperties = {
                     name: file.name, mimeType: file.mimeType, size: file.size,
                     createdTime: file.createdTime, modifiedTime: file.modifiedTime,
                     thumbnails: file.thumbnails, downloadUrl: file.downloadUrl
-                });
-
+                };
                 const pngMeta = await state.dbManager.getPngMetadata(file.id);
-                metadata.extractedMetadata = pngMeta ? pngMeta.data : {};
-                metadata.metadataStatus = pngMeta ? 'loaded' : 'pending';
 
-                return metadata;
+                // Reconstruct the metadata object safely, ensuring critical IDs are never overwritten.
+                const finalMetadata = {
+                    ...baseMetadata,
+                    ...providerUserMetadata,
+                    ...providerFileProperties,
+                    extractedMetadata: pngMeta ? pngMeta.data : {},
+                    metadataStatus: pngMeta ? 'loaded' : 'pending',
+                    id: file.id, // Explicitly guarantee the correct ID from the source provider file
+                    folderId: folderId // Explicitly guarantee the correct folder ID
+                };
+
+                return finalMetadata;
             },
             
             // <STEP 5> ADD Add helper to create initial metadata records in the database
