@@ -1,4 +1,4 @@
-<!-- performance from Offline-First Image Gallery perf -->
+<!-- orbital8-goji-2025-08-26 05:07 AM -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -485,8 +485,7 @@
             
             <div id="provider-status" class="status info">Choose your preferred cloud storage</div>
         </div>
-        <div class="app-footer">Offline-First Image Gallery perf
-</div>
+        <div class="app-footer">orbital8-goji-2025-08-26 05:07 AM</div>
     </div>
     
     <!-- Google Drive Auth Screen -->
@@ -511,7 +510,7 @@
             <button class="button" id="onedrive-back-button" style="background: rgba(128,128,128,0.3);">← Back</button>
             <div id="onedrive-auth-status" class="status info">Click to sign in with your Microsoft account</div>
         </div>
-        <div class="app-footer">Offline-First Image Gallery perf</div>
+        <div class="app-footer">orbital8-goji-2025-08-26 05:07 AM</div>
     </div>
     
     <!-- Google Drive Folder Screen -->
@@ -526,7 +525,7 @@
                 <button class="folder-button danger" id="gdrive-logout">Disconnect</button>
             </div>
         </div>
-        <div class="app-footer">Offline-First Image Gallery perf</div>
+        <div class="app-footer">orbital8-goji-2025-08-26 05:07 AM</div>
     </div>
     
     <!-- OneDrive Folder Screen -->
@@ -541,7 +540,7 @@
                 <button class="folder-button danger" id="onedrive-logout">Disconnect</button>
             </div>
         </div>
-        <div class="app-footer">Offline-First Image Gallery perf</div>
+        <div class="app-footer">orbital8-goji-2025-08-26 05:07 AM</div>
     </div>
     
     <!-- Loading Screen -->
@@ -555,7 +554,7 @@
             </div>
             <button class="button" id="cancel-loading" style="background: rgba(239, 68, 68, 0.8); margin-top: 16px;">Cancel</button>
         </div>
-        <div class="app-footer">Offline-First Image Gallery perf</div>
+        <div class="app-footer">orbital8-goji-2025-08-26 05:07 AM</div>
     </div>
     
     <!-- Main App Container -->
@@ -598,7 +597,7 @@
         </button>
         
         <div id="toast" class="toast"></div>
-        <div class="app-footer">Offline-First Image Gallery perf</div>
+        <div class="app-footer">orbital8-goji-2025-08-26 05:07 AM</div>
     </div>
     
     <!-- Enhanced Grid Modal -->
@@ -1979,7 +1978,7 @@
                             Utils.updateLoadingProgress(index + 1, files.length, 'Processing files...');
                             return this.processFileWithProviderMetadata(file, folderId);
                         });
-                        state.imageFiles = await Promise.all(metadataPromises);
+                        state.imageFiles = (await Promise.all(metadataPromises)).filter(Boolean);
                         
                         await state.dbManager.saveFolderCache(folderId, files);
 
@@ -2016,7 +2015,7 @@
                     const deletedFileIds = localFiles.filter(f => !cloudFileIds.has(f.id)).map(f => f.id);
 
                     if (newFiles.length > 0) {
-                         const newMetadata = await Promise.all(newFiles.map(file => this.processFileWithProviderMetadata(file, folderId)));
+                         const newMetadata = (await Promise.all(newFiles.map(file => this.processFileWithProviderMetadata(file, folderId)))).filter(Boolean);
                          state.imageFiles.push(...newMetadata);
                          Utils.showToast(`${newFiles.length} new image(s) found and added.`, 'info', true);
                     }
@@ -2036,6 +2035,10 @@
             },
             
             async processFileWithProviderMetadata(file, folderId) {
+                if (!file || !file.id) {
+                    console.error("Data Integrity Error: Provider returned a file object without an ID. Skipping.", file);
+                    return null;
+                }
                 const existingMetadata = await state.dbManager.getMetadata(file.id);
                 const baseMetadata = existingMetadata || await this.createInitialMetadata(file, folderId);
                 const providerUserMetadata = state.provider.getUserMetadata(file);
