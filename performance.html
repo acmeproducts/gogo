@@ -1,4 +1,4 @@
-<!-- orbital8-v15.2-stable-rw - 2025-09-13 12:00 PM -->
+<!-- orbital8-v16-stable-ui-2025-09-15 04:23 PM Verision F attempt 2-->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -49,9 +49,9 @@
         .input:focus, .notes-textarea:focus, .tag-input:focus {
             outline: none; border-color: var(--accent); box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.2);
         }
-        .notes-textarea { min-height: 120px; font-family: inherit; resize: vertical; }
+        .notes-textarea { min-height: 120px; font-family: inherit; resize: vertical; color: black; }
 
-        #action-modal .tag-input, #grid-modal .input {
+        #action-modal .tag-input, #grid-modal .input, #action-modal .notes-textarea {
             color: #1f2937; background: #f3f4f6; border-color: #d1d5db;
         }
         
@@ -166,21 +166,6 @@
         .loading-progress-bar { height: 100%; background: linear-gradient(45deg, var(--accent), #d97706); border-radius: 3px; transition: width 0.3s ease; width: 0%; }
         
         .app-container { position: relative; width: 100vw; height: 100vh; background: var(--dark); overflow: hidden; }
-        .nav-button {
-            position: absolute; top: 20px; background: var(--glass); backdrop-filter: blur(10px);
-            border: 1px solid rgba(255, 255, 255, 0.2); border-radius: 20px; padding: 8px 12px; font-size: 11px;
-            color: white; cursor: pointer; transition: all 0.3s ease; z-index: 15; display: flex; align-items: center; gap: 6px; opacity: 0.7;
-        }
-        .nav-button:hover { opacity: 1; background: rgba(255, 255, 255, 0.2); }
-        .nav-button.back { left: 20px; }
-        .nav-button.details { right: 20px; }
-        
-        .folder-tooltip {
-            position: absolute; background: rgba(0,0,0,0.85); color: white;
-            padding: 8px 12px; border-radius: 6px; font-size: 12px;
-            z-index: 1000; pointer-events: none; white-space: nowrap;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.3);
-        }
         
         .image-viewport { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; z-index: 1; overflow: hidden; }
         .center-image {
@@ -190,17 +175,9 @@
         .center-image.dragging { filter: brightness(0.9); cursor: grabbing; }
         .center-image.zoomable { pointer-events: auto; }
         
-        .filename-overlay {
-            position: absolute; bottom: 25px; left: 50%; transform: translateX(-50%);
-            background-color: rgba(0, 0, 0, 0.6); color: white; padding: 6px 14px; border-radius: 12px;
-            font-size: 12px; font-weight: 500; z-index: 5; max-width: 90%; white-space: nowrap;
-            overflow: hidden; text-overflow: ellipsis; opacity: 0; transition: opacity 0.3s ease;
-            pointer-events: auto; text-decoration: none;
-        }
-        .filename-overlay:hover { background-color: rgba(0, 0, 0, 0.8); color: var(--accent); }
-        .filename-overlay.visible { opacity: 1; }
+        .filename-overlay { display: none !important; }
 
-        .edge-glow { position: absolute; opacity: 0; transition: opacity 0.2s ease; z-index: 2; }
+        .edge-glow { position: absolute; opacity: 0; transition: opacity 0.2s ease; z-index: 2; pointer-events: none; }
         .edge-glow.top { top: 0; left: 0; right: 0; height: 8px; background: linear-gradient(180deg, rgba(245, 158, 11, var(--glow)) 0%, transparent 100%); }
         .edge-glow.bottom { 
             bottom: 0; left: 0; right: 0; height: 8px; 
@@ -221,7 +198,7 @@
         .pill-counter:not(.active) { background: rgba(128, 128, 128, 0.4); border: none; }
         .pill-counter:hover { opacity: 1; transform: scale(1.05); }
         .pill-counter.top { top: 10px; left: 50%; transform: translateX(-50%); }
-        .pill-counter.bottom { bottom: 60px; left: 50%; transform: translateX(-50%); }
+        .pill-counter.bottom-center { bottom: 20px; left: 50%; transform: translateX(-50%); }
         .pill-counter.left { left: 10px; top: 50%; transform: translateY(-50%); }
         .pill-counter.right { right: 10px; top: 50%; transform: translateY(-50%); }
         
@@ -365,18 +342,18 @@
         .tab-content { display: none; padding: 20px; height: 100%; }
         .tab-content.active { display: block; }
         
-        .tags-container { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 16px; min-height: 40px; }
+        .tags-container { display: flex; flex-direction: column; gap: 16px; }
+        .tags-section { border-bottom: 1px solid #e5e7eb; padding-bottom: 12px; }
+        .tags-section:last-child { border-bottom: none; }
+        .tags-section-title { font-size: 12px; font-weight: 600; color: #6b7280; text-transform: uppercase; margin-bottom: 8px; }
+        .tag-list { display: flex; flex-wrap: wrap; gap: 8px; min-height: 20px; }
         .tag-item { display: inline-flex; align-items: center; background: #dbeafe; color: #1e40af; padding: 4px 8px; border-radius: 12px; font-size: 12px; gap: 6px; }
+        .tag-suggestion { background: #e5e7eb; color: #374151; cursor: pointer; }
         .tag-remove {
             background: transparent; border: none; color: #1e40af; cursor: pointer; font-size: 14px; line-height: 1; padding: 0;
             width: 16px; height: 16px; display: flex; align-items: center; justify-content: center; border-radius: 50%; transition: background-color 0.2s;
         }
         .tag-remove:hover { background: rgba(59, 130, 246, 0.1); }
-        .add-tag-btn {
-            background: #f3f4f6; border: 1px dashed #d1d5db; border-radius: 12px; padding: 4px 12px;
-            font-size: 12px; color: #6b7280; cursor: pointer; transition: all 0.2s;
-        }
-        .add-tag-btn:hover { background: #e5e7eb; color: #374151; }
         
         .star-rating { display: flex; gap: 4px; }
         .star { width: 24px; height: 24px; cursor: pointer; color: #d1d5db; transition: color 0.2s; }
@@ -403,52 +380,90 @@
             padding: 4px 8px;
             font-size: 10px; z-index: 5; backdrop-filter: blur(10px);
         }
-        
-        .focus-mode-ui, #normal-image-count {
-            position: absolute; background: rgba(0, 0, 0, 0.4); color: white;
-            border: 1px solid rgba(255, 255, 255, 0.2); border-radius: 20px; z-index: 20;
-            display: none; align-items: center; justify-content: center; backdrop-filter: blur(10px);
-            transition: all 0.2s ease; font-size: 11px; padding: 8px 12px; cursor: pointer;
+
+        .ui-button {
+            background: rgba(0, 0, 0, 0.4);
+            color: #e5e7eb; /* light grey */
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 20px;
+            z-index: 20;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            backdrop-filter: blur(10px);
+            transition: none; /* No hover effect */
+            font-size: 14px;
+            padding: 10px 16px;
+            cursor: pointer;
+            position: absolute;
         }
-        .focus-mode-ui:hover, #normal-image-count:hover {
-            background: rgba(0, 0, 0, 0.6); border-color: white;
-        }
+
+        #back-button { top: 20px; left: 20px; }
+        #details-button { top: 20px; right: 20px; }
+        #normal-image-count { bottom: 20px; left: 20px; }
+        #center-trash-btn { bottom: 20px; right: 20px; }
+
+        .focus-mode-ui { display: none; }
         #focus-stack-name { top: 20px; left: 20px; }
-        #focus-image-count { bottom: 20px; left: 20px; }
-        #normal-image-count { bottom: 20px; left: 20px; display: flex; }
-        #focus-delete-btn { bottom: 20px; right: 20px; width: 44px; height: 44px; padding: 0; border-radius: 50%; }
+        #focus-filename-display {
+            top: 20px; left: 50%; transform: translateX(-50%);
+            color: #e5e7eb; font-size: 14px;
+        }
+        #focus-image-count { bottom: 20px; left: 20px; color: #e5e7eb; }
+        #focus-delete-btn { bottom: 20px; right: 20px; color: #e5e7eb; }
+        #focus-favorite-btn {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: transparent;
+            border: none;
+            cursor: pointer;
+            z-index: 20;
+            padding: 0;
+            color: #9ca3af; /* Standalone grey outline */
+        }
+        #focus-favorite-btn.favorited {
+            color: #ef4444; /* Solid red */
+        }
         
         .app-container.focus-mode .pill-counter,
-        .app-container.focus-mode .nav-button.back,
-        .app-container.focus-mode .filename-overlay,
-        .app-container.focus-mode #normal-image-count { display: none; }
+        .app-container.focus-mode #back-button,
+        .app-container.focus-mode #normal-image-count,
+        .app-container.focus-mode #center-trash-btn { display: none; }
+
         .app-container.focus-mode .focus-mode-ui { display: flex; }
-        .app-container.focus-mode .nav-button.details { background: rgba(0, 0, 0, 0.4); }
         
         .hidden { display: none !important; }
         
-        @media screen and (min-width: 768px) {
-            .pill-counter { font-size: 16px; padding: 8px 16px; min-width: 40px; }
-            .nav-button { font-size: 14px; padding: 10px 16px; }
-            .focus-mode-ui, #normal-image-count { font-size: 14px; padding: 10px 16px; }
-        }
-        
-        @media screen and (max-width: 767px) {
-            .nav-button { font-size: 16px; padding: 12px 20px; border-radius: 25px; min-width: 80px; }
-            .pill-counter.bottom { bottom: 80px; }
-            .filename-overlay { font-size: 11px; padding: 5px 12px; bottom: 35px; }
-            .details-modal-content { max-width: 100vw; max-height: 100vh; height: 100vh; margin: 0; border-radius: 0; }
-            .metadata-table .key-cell { width: 30%; min-width: 80px; font-size: 12px; }
-            .metadata-table .value-cell { font-size: 12px; }
-            .copy-button { font-size: 10px; padding: 3px 6px; }
-            .app-container { height: 100vh; height: 100dvh; }
-            .image-viewport { height: 100vh; height: 100dvh; }
-        }
-        
         @supports (height: 100dvh) {
-            .app-container { height: 100dvh; }
-            .image-viewport { height: 100dvh; }
+            .app-container, .image-viewport { height: 100dvh; }
         }
+
+        .quick-move-zone, .focus-tap-zone {
+            position: absolute;
+            z-index: 3;
+        }
+        #quick-move-top { top: 0; left: 0; right: 0; height: 45%; }
+        #quick-move-bottom { bottom: 0; left: 0; right: 0; height: 45%; }
+        #quick-move-left { left: 0; top: 0; bottom: 0; width: 45%; }
+        #quick-move-right { right: 0; top: 0; bottom: 0; width: 45%; }
+
+        .app-container.focus-mode .quick-move-zone {
+            pointer-events: none;
+        }
+        .focus-tap-zone {
+             top: 0; bottom: 0;
+             display: none;
+        }
+        #focus-tap-left { left: 0; width: 40%; }
+        #focus-tap-center { left: 40%; width: 20%; }
+        #focus-tap-right { right: 0; width: 40%; }
+        
+        .app-container.focus-mode .focus-tap-zone {
+            display: block;
+        }
+
     </style>
 </head>
 <body>
@@ -457,17 +472,14 @@
         <div class="card">
             <h1 class="title" style="font-size: 32px;">Orbital8</h1>
             <p class="subtitle">Select your cloud storage provider</p>
-            
             <button class="provider-button" id="google-drive-btn">
                 <svg style="width: 20px; height: 20px;" viewBox="0 0 24 24"><path fill="currentColor" d="M6.28 7L9.69 1h4.62l3.41 6zM16.05 7H7.95l4.05 7zM11.76 15h8.58L24 21H7.05z"/></svg>
                 Google Drive
             </button>
-            
             <button class="provider-button" id="onedrive-btn">
                 <svg style="width: 20px; height: 20px;" viewBox="0 0 24 24"><path fill="currentColor" d="M17.75 8C16.82 8 16 8.82 16 9.75S16.82 11.5 17.75 11.5s1.75-.82 1.75-1.75S18.68 8 17.75 8z"/></svg>
                 OneDrive
             </button>
-            
             <div class="settings-section">
                 <div style="margin-bottom: 16px;">
                     <label style="color: rgba(255,255,255,0.9); font-size: 14px; font-weight: 500; display: block; margin-bottom: 8px;">Visual Cue Intensity:</label>
@@ -477,7 +489,6 @@
                         <button class="intensity-btn" data-level="high">High</button>
                     </div>
                 </div>
-                
                 <div>
                     <label class="checkbox-label">
                         <input type="checkbox" id="haptic-enabled" checked style="margin: 0;">
@@ -485,10 +496,9 @@
                     </label>
                 </div>
             </div>
-            
             <div id="provider-status" class="status info">Choose your preferred cloud storage</div>
         </div>
-        <div class="app-footer">orbital8-v15.2-stable-rw - 2025-09-13 12:00 PM</div>
+        <div class="app-footer">orbital8-v16-stable-ui - 2025-09-15 03:55 PM</div>
     </div>
     
     <!-- Google Drive Auth Screen -->
@@ -501,7 +511,7 @@
             <button class="button" id="gdrive-back-button" style="background: rgba(128,128,128,0.3);">← Back</button>
             <div id="gdrive-auth-status" class="status info">Enter your client secret to continue</div>
         </div>
-        <div class="app-footer">orbital8-v15.2-stable-rw - 2025-09-13 12:00 PM</div>
+        <div class="app-footer">orbital8-v16-stable-ui - 2025-09-15 03:55 PM</div>
     </div>
     
     <!-- OneDrive Auth Screen -->
@@ -513,7 +523,7 @@
             <button class="button" id="onedrive-back-button" style="background: rgba(128,128,128,0.3);">← Back</button>
             <div id="onedrive-auth-status" class="status info">Click to sign in with your Microsoft account</div>
         </div>
-        <div class="app-footer">orbital8-v15.2-stable-rw - 2025-09-13 12:00 PM</div>
+        <div class="app-footer">orbital8-v16-stable-ui - 2025-09-15 03:55 PM</div>
     </div>
     
     <!-- Google Drive Folder Screen -->
@@ -528,7 +538,7 @@
                 <button class="folder-button danger" id="gdrive-logout">Disconnect</button>
             </div>
         </div>
-        <div class="app-footer">orbital8-v15.2-stable-rw - 2025-09-13 12:00 PM</div>
+        <div class="app-footer">orbital8-v16-stable-ui - 2025-09-15 03:55 PM</div>
     </div>
     
     <!-- OneDrive Folder Screen -->
@@ -543,7 +553,7 @@
                 <button class="folder-button danger" id="onedrive-logout">Disconnect</button>
             </div>
         </div>
-        <div class="app-footer">orbital8-v15.2-stable-rw - 2025-09-13 12:00 PM</div>
+        <div class="app-footer">orbital8-v16-stable-ui - 2025-09-15 03:55 PM</div>
     </div>
     
     <!-- Loading Screen -->
@@ -557,20 +567,30 @@
             </div>
             <button class="button" id="cancel-loading" style="background: rgba(239, 68, 68, 0.8); margin-top: 16px;">Cancel</button>
         </div>
-        <div class="app-footer">orbital8-v15.2-stable-rw - 2025-09-13 12:00 PM</div>
+        <div class="app-footer">orbital8-v16-stable-ui - 2025-09-15 03:55 PM</div>
     </div>
     
     <!-- Main App Container -->
     <div class="app-container hidden" id="app-container">
-        <div class="nav-button back" id="back-button">
+        <button class="ui-button" id="back-button">
             <span id="back-button-spinner" class="spinner" style="display: none; width: 14px; height: 14px; margin-right: 6px;"></span>
-            ← Folders
-        </div>
-        <div class="nav-button details" id="details-button">Details →</div>
+            Folders
+        </button>
+        <button class="ui-button" id="details-button">Details</button>
         
         <div class="image-viewport" id="image-viewport">
+            <!-- REVERT: Using a single, persistent image element for stability -->
             <img class="center-image zoomable" id="center-image" alt="Select a folder to start" />
         </div>
+
+         <div id="quick-move-top" class="quick-move-zone"></div>
+        <div id="quick-move-bottom" class="quick-move-zone"></div>
+        <div id="quick-move-left" class="quick-move-zone"></div>
+        <div id="quick-move-right" class="quick-move-zone"></div>
+
+        <div id="focus-tap-left" class="focus-tap-zone"></div>
+        <div id="focus-tap-center" class="focus-tap-zone"></div>
+        <div id="focus-tap-right" class="focus-tap-zone"></div>
         
         <div class="edge-glow top" id="edge-top"></div>
         <div class="edge-glow bottom" id="edge-bottom"></div>
@@ -578,7 +598,7 @@
         <div class="edge-glow right" id="edge-right"></div>
         
         <div class="pill-counter top" id="pill-priority" data-stack="priority">0</div>
-        <div class="pill-counter bottom" id="pill-trash" data-stack="trash">0</div>
+        <div class="pill-counter bottom-center" id="pill-trash" data-stack="trash">0</div>
         <div class="pill-counter left active" id="pill-in" data-stack="in">0</div>
         <div class="pill-counter right" id="pill-out" data-stack="out">0</div>
         
@@ -588,19 +608,27 @@
             <button class="new-images-button" id="select-another-folder-btn" style="margin-top: 12px;">Choose Different Folder</button>
         </div>
         
-        <a id="filename-overlay" class="filename-overlay" href="#" target="_blank"></a>
+        <div id="normal-image-count" class="ui-button"></div>
+        <button id="center-trash-btn" class="ui-button">
+            <svg style="width: 20px; height: 20px;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+            </svg>
+        </button>
 
-        <div id="focus-stack-name" class="focus-mode-ui"></div>
-        <div id="focus-image-count" class="focus-mode-ui"></div>
-        <div id="normal-image-count"></div>
-        <button id="focus-delete-btn" class="focus-mode-ui">
+        <button id="focus-stack-name" class="ui-button focus-mode-ui"></button>
+        <div id="focus-filename-display" class="ui-button focus-mode-ui" style="background: transparent; border: none; cursor: default;"></div>
+        <div id="focus-image-count" class="ui-button focus-mode-ui"></div>
+        <button id="focus-favorite-btn" class="focus-mode-ui">
+            <svg id="focus-favorite-icon" style="width: 28px; height: 28px;" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M3.172 5.172a4 4 0 015.656 0L10 6.343l1.172-1.171a4 4 0 115.656 5.656L10 17.657l-6.828-6.829a4 4 0 010-5.656z" clip-rule="evenodd"/></svg>
+        </button>
+        <button id="focus-delete-btn" class="ui-button focus-mode-ui">
             <svg style="width: 20px; height: 20px;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
             </svg>
         </button>
         
         <div id="toast" class="toast"></div>
-        <div class="app-footer">orbital8-v15.2-stable-rw - 2025-09-13 12:00 PM</div>
+        <div class="app-footer">orbital8-v16-stable-ui - 2025-09-15 03:55 PM</div>
     </div>
     
     <!-- Enhanced Grid Modal -->
@@ -635,7 +663,7 @@
                 </div>
                 
                 <div class="grid-row-3">
-                    <input type="text" id="omni-search" class="input" placeholder="Search tags, notes, and metadata..." style="margin-bottom: 0;">
+                    <input type="text" id="omni-search" class="input" placeholder="Search images... (#favorite, -tag)" style="margin-bottom: 0;">
                     <button id="clear-search-btn">
                          <svg style="width: 16px; height: 16px;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
                     </button>
@@ -644,6 +672,7 @@
                 <div class="grid-row-4">
                     <div class="bulk-actions">
                         <button id="tag-selected" class="btn btn-primary">Tag</button>
+                        <button id="notes-selected" class="btn btn-primary">Notes</button>
                         <button id="move-selected" class="btn btn-primary">Move</button>
                         <button id="delete-selected" class="btn btn-danger">Delete</button>
                         <button id="export-selected" class="btn btn-primary">Export</button>
@@ -660,9 +689,14 @@
     <!-- Unified Action Modal -->
     <div id="action-modal" class="modal hidden">
         <div class="modal-content action-modal">
-            <h3 id="action-title" class="title" style="font-size: 18px; color: #1f2937; margin-bottom: 16px;">Action</h3>
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+                 <h3 id="action-title" class="title" style="font-size: 18px; color: #1f2937; margin-bottom: 0;">Action</h3>
+                 <button id="action-close" class="close-btn" style="position: static;">
+                     <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                 </button>
+            </div>
             <div id="action-content"></div>
-            <div style="display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px;">
+            <div id="action-footer" style="display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px;">
                 <button id="action-cancel" class="btn btn-secondary">Cancel</button>
                 <button id="action-confirm" class="btn btn-primary">Confirm</button>
             </div>
@@ -709,38 +743,11 @@
                 </div>
                 
                 <div id="tab-tags" class="tab-content">
-                    <div style="margin-bottom: 20px;">
-                        <div class="tags-container" id="detail-tags"></div>
-                    </div>
+                    <!-- New Tagging UI will be rendered here -->
                 </div>
                 
                 <div id="tab-notes" class="tab-content">
-                    <div style="margin-bottom: 24px;">
-                        <label for="detail-notes" style="font-size: 14px; color: #6b7280; min-width: 80px; font-weight: 500;">Notes:</label>
-                        <textarea id="detail-notes" class="notes-textarea" placeholder="Add your notes here..."></textarea>
-                    </div>
-                    
-                    <div style="margin-bottom: 20px;">
-                        <div style="font-size: 14px; font-weight: 500; color: #374151; margin-bottom: 8px;">Quality Rating:</div>
-                        <div class="star-rating" id="quality-rating">
-                            <svg class="star" data-rating="1" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
-                            <svg class="star" data-rating="2" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
-                            <svg class="star" data-rating="3" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
-                            <svg class="star" data-rating="4" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
-                            <svg class="star" data-rating="5" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
-                        </div>
-                    </div>
-                    
-                    <div style="margin-bottom: 20px;">
-                        <div style="font-size: 14px; font-weight: 500; color: #374151; margin-bottom: 8px;">Content Rating:</div>
-                        <div class="star-rating" id="content-rating">
-                            <svg class="star" data-rating="1" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
-                            <svg class="star" data-rating="2" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
-                            <svg class="star" data-rating="3" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
-                            <svg class="star" data-rating="4" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
-                            <svg class="star" data-rating="5" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
-                        </div>
-                    </div>
+                    <!-- New Notes UI will be rendered here -->
                 </div>
                 
                 <div id="tab-metadata" class="tab-content">
@@ -751,10 +758,10 @@
     </div>
 
     <script>
-        // ===== ORBITAL8 Goji Version - App Root & Web Worker =====
+        // ===== ORBITAL8 Goji Version - Release F (Stable UI) =====
         
         const STACKS = ['in', 'out', 'priority', 'trash'];
-        const STACK_NAMES = { 'in': 'In', 'out': 'Out', 'priority': 'Priority', 'trash': 'Trash' };
+        const STACK_NAMES = { 'in': 'Inbox', 'out': 'Maybe', 'priority': 'Keep', 'trash': 'Recycle' };
         const state = {
             provider: null, providerType: null, dbManager: null, metadataExtractor: null,
             syncManager: null, visualCues: null, haptic: null, export: null, currentFolder: { id: null, name: '' },
@@ -763,10 +770,12 @@
             isDragging: false, isPinching: false, initialDistance: 0, currentScale: 1,
             maxScale: 4, minScale: 0.3, panOffset: { x: 0, y: 0 },
             grid: { stack: null, selected: [], filtered: [], isDirty: false,
-                lazyLoadState: { allFiles: [], renderedCount: 0, observer: null, batchSize: 20 } },
+                lazyLoadState: { allFiles: [], renderedCount: 0, observer: null, batchSize: 50 } 
+            },
             tags: new Set(), loadingProgress: { current: 0, total: 0 },
             folderMoveMode: { active: false, files: [] },
-            activeRequests: new AbortController() // NEW: Controller for background tasks
+            activeRequests: new AbortController(),
+            lastMove: null
         };
         const Utils = {
             elements: {},
@@ -807,17 +816,20 @@
                     backButtonSpinner: document.getElementById('back-button-spinner'),
                     detailsButton: document.getElementById('details-button'),
                     imageViewport: document.getElementById('image-viewport'),
-                    centerImage: document.getElementById('center-image'),
+                    centerImage: document.getElementById('center-image'), // REVERT: Get single image element
                     emptyState: document.getElementById('empty-state'),
                     selectAnotherStackBtn: document.getElementById('select-another-stack-btn'),
                     selectAnotherFolderBtn: document.getElementById('select-another-folder-btn'),
                     toast: document.getElementById('toast'),
-                    filenameOverlay: document.getElementById('filename-overlay'),
                     
+                    centerTrashBtn: document.getElementById('center-trash-btn'),
                     focusStackName: document.getElementById('focus-stack-name'),
+                    focusFilenameDisplay: document.getElementById('focus-filename-display'),
                     focusImageCount: document.getElementById('focus-image-count'),
                     normalImageCount: document.getElementById('normal-image-count'),
                     focusDeleteBtn: document.getElementById('focus-delete-btn'),
+                    focusFavoriteBtn: document.getElementById('focus-favorite-btn'),
+                    focusFavoriteIcon: document.getElementById('focus-favorite-icon'),
 
                     loadingCounter: document.getElementById('loading-counter'),
                     loadingMessage: document.getElementById('loading-message'),
@@ -849,6 +861,7 @@
                     clearSearchBtn: document.getElementById('clear-search-btn'),
                     
                     tagSelected: document.getElementById('tag-selected'),
+                    notesSelected: document.getElementById('notes-selected'),
                     moveSelected: document.getElementById('move-selected'),
                     deleteSelected: document.getElementById('delete-selected'),
                     exportSelected: document.getElementById('export-selected'),
@@ -857,6 +870,8 @@
                     actionModal: document.getElementById('action-modal'),
                     actionTitle: document.getElementById('action-title'),
                     actionContent: document.getElementById('action-content'),
+                    actionFooter: document.getElementById('action-footer'),
+                    actionClose: document.getElementById('action-close'),
                     actionCancel: document.getElementById('action-cancel'),
                     actionConfirm: document.getElementById('action-confirm'),
                     
@@ -866,10 +881,8 @@
                     detailFilenameLink: document.getElementById('detail-filename-link'),
                     detailDate: document.getElementById('detail-date'),
                     detailSize: document.getElementById('detail-size'),
-                    detailTags: document.getElementById('detail-tags'),
-                    detailNotes: document.getElementById('detail-notes'),
-                    qualityRating: document.getElementById('quality-rating'),
-                    contentRating: document.getElementById('content-rating'),
+                    detailTags: document.getElementById('tab-tags'),
+                    detailNotes: document.getElementById('tab-notes'),
                     metadataTable: document.getElementById('metadata-table')
                 };
             },
@@ -900,6 +913,7 @@
             async setImageSrc(img, file) {
                 const loadId = file.id + '_' + Date.now();
                 state.currentImageLoadId = loadId;
+                
                 let imageUrl = this.getPreferredImageUrl(file);
                 return new Promise((resolve) => {
                     img.onload = () => {
@@ -925,9 +939,10 @@
             getPreferredImageUrl(file) {
                 if (state.providerType === 'googledrive') {
                     if (file.thumbnailLink) {
-                        return file.thumbnailLink.replace('=s220', '=s1000');
+                        // FIX: Revert to baseline method, removing timestamp hack
+                        return file.thumbnailLink.replace('=s220', '=s1600');
                     }
-                    return `https://drive.google.com/thumbnail?id=${file.id}&sz=w1000`;
+                    return `https://drive.google.com/thumbnail?id=${file.id}&sz=w1600`;
                 } else { // OneDrive
                     if (file.thumbnails && file.thumbnails.large) {
                         return file.thumbnails.large.url;
@@ -1430,7 +1445,7 @@
                 const headers = [ 'Filename', 'Direct Image URL', 'Prompt', 'Negative Prompt', 'Model', 'Width', 'Height', 'Steps', 'Seed', 'CFG Scale', 'Size', 'Created Date', 'Modified Date', 'Tags', 'Notes', 'Quality Rating', 'Content Rating', 'Provider', 'Metadata (JSON)' ];
                 const rows = images.map(image => {
                     const meta = image.extractedMetadata || {}; const dims = meta._dimensions || {};
-                    return [ image.name || '', this.getDirectImageURL(image), this.extractMetadataValue(meta, ['prompt', 'Prompt', 'parameters']), this.extractMetadataValue(meta, ['negative_prompt', 'Negative Prompt']), this.extractMetadataValue(meta, ['model', 'Model']), dims.width || '', dims.height || '', this.extractMetadataValue(meta, ['steps', 'Steps']), this.extractMetadataValue(meta, ['seed', 'Seed']), this.extractMetadataValue(meta, ['cfg_scale', 'CFG Scale']), Utils.formatFileSize(image.size || 0), image.createdTime ? new Date(image.createdTime).toISOString() : '', image.modifiedTime ? new Date(image.modifiedTime).toISOString() : '', (image.tags || []).join('; '), image.notes || '', image.qualityRating || 0, image.contentRating || 0, state.providerType || 'unknown', JSON.stringify(meta) ];
+                    return [ image.name || '', this.getDirectImageURL(image), this.extractMetadataValue(meta, ['prompt', 'Prompt', 'parameters']), this.extractMetadataValue(meta, ['negative_prompt', 'Negative Prompt']), this.extractMetadataValue(meta, ['model', 'Model']), dims.width || '', dims.height || '', this.extractMetadataValue(meta, ['steps', 'Steps']), this.extractMetadataValue(meta, ['seed', 'Seed']), this.extractMetadataValue(meta, ['cfg_scale', 'CFG Scale']), Utils.formatFileSize(image.size), image.createdTime ? new Date(image.createdTime).toISOString() : '', image.modifiedTime ? new Date(image.modifiedTime).toISOString() : '', (image.tags || []).join('; '), image.notes || '', image.qualityRating || 0, image.contentRating || 0, state.providerType || 'unknown', JSON.stringify(meta) ];
                 });
                 return [headers, ...rows];
             }
@@ -1501,7 +1516,7 @@
             },
             
             backToProviderSelection() {
-                state.syncManager.stop();
+                if(state.syncManager) state.syncManager.stop();
                 state.provider = null;
                 state.providerType = null;
                 Utils.showScreen('provider-screen');
@@ -1516,7 +1531,7 @@
                 
                 await this.loadImages();
                 this.switchToCommonUI();
-                state.syncManager.start();
+                if(state.syncManager) state.syncManager.start();
             },
 
             async loadImages() {
@@ -1602,79 +1617,53 @@
             },
             
             async processAllMetadata(files, isFirstLoad = false) {
-                 if (isFirstLoad) Utils.updateLoadingProgress(0, files.length, 'Processing files...');
-                 for (let i = 0; i < files.length; i++) {
+                if (isFirstLoad) Utils.updateLoadingProgress(0, files.length, 'Processing files...');
+                for (let i = 0; i < files.length; i++) {
                     const file = files[i];
+                    // FIX: Always get fresh cloud properties and merge them over any stale local cache.
+                    const cloudPropertiesMetadata = this.generateDefaultMetadata(file); 
                     const metadata = await state.dbManager.getMetadata(file.id);
+
                     if (metadata) {
-                        Object.assign(file, metadata);
+                        Object.assign(file, metadata, cloudPropertiesMetadata);
                     } else {
-                        const defaultMetadata = this.generateDefaultMetadata(file);
-                        Object.assign(file, defaultMetadata);
-                        await state.dbManager.saveMetadata(file.id, defaultMetadata);
+                        Object.assign(file, cloudPropertiesMetadata);
                     }
-                    if(isFirstLoad) Utils.updateLoadingProgress(i + 1, files.length); // FIX: Counter logic
+                    
+                    await state.dbManager.saveMetadata(file.id, file);
+
+                    if(isFirstLoad) Utils.updateLoadingProgress(i + 1, files.length);
                 }
                 this.extractMetadataInBackground(files.filter(f => f.mimeType === 'image/png'));
             },
 
             generateDefaultMetadata(file) {
-                 if (state.providerType === 'googledrive') {
-                    return {
-                        stack: file.appProperties?.slideboxStack || 'in',
-                        tags: file.appProperties?.slideboxTags ? file.appProperties.slideboxTags.split(',').map(t => t.trim()) : [],
-                        qualityRating: parseInt(file.appProperties?.qualityRating) || 0,
-                        contentRating: parseInt(file.appProperties?.contentRating) || 0,
-                        notes: file.appProperties?.notes || '',
-                        stackSequence: parseInt(file.appProperties?.stackSequence) || 0,
-                        extractedMetadata: {},
-                        metadataStatus: 'pending'
-                    };
-                 } else {
-                     return { stack: 'in', tags: [], qualityRating: 0, contentRating: 0, notes: '', stackSequence: 0, extractedMetadata: {}, metadataStatus: 'pending' };
+                 const baseMetadata = { 
+                    stack: 'in', 
+                    tags: [], 
+                    qualityRating: 0, 
+                    contentRating: 0, 
+                    notes: '', 
+                    stackSequence: 0, 
+                    favorite: false,
+                    extractedMetadata: {}, 
+                    metadataStatus: 'pending' 
+                };
+
+                 if (state.providerType === 'googledrive' && file.appProperties) {
+                    baseMetadata.stack = file.appProperties.slideboxStack || 'in';
+                    baseMetadata.tags = file.appProperties.slideboxTags ? file.appProperties.slideboxTags.split(',').map(t => t.trim()) : [];
+                    baseMetadata.qualityRating = parseInt(file.appProperties.qualityRating) || 0;
+                    baseMetadata.contentRating = parseInt(file.appProperties.contentRating) || 0;
+                    baseMetadata.notes = file.appProperties.notes || '';
+                    baseMetadata.stackSequence = parseInt(file.appProperties.stackSequence) || 0;
+                    baseMetadata.favorite = file.appProperties.favorite === 'true';
                  }
+                 return baseMetadata;
             },
             
             switchToCommonUI() {
                 Utils.showScreen('app-container');
-                this.setupProviderAwareNavigation();
-            },
-            
-            setupProviderAwareNavigation() {
-                Utils.elements.backButton.textContent = '← Folders';
-                Utils.elements.backButton.onclick = () => this.returnToFolderSelection();
-                this.setupFolderTooltips();
-            },
-            
-            setupFolderTooltips() {
-                Utils.elements.backButton.addEventListener('mouseenter', () => {
-                    const folderName = state.currentFolder.name || 'Unknown';
-                    const imageCount = state.imageFiles.length;
-                    const provider = state.providerType === 'googledrive' ? 'Google Drive' : 'OneDrive';
-                    this.showTooltip(Utils.elements.backButton, `${provider}: ${folderName} • ${imageCount} images`);
-                });
-                Utils.elements.backButton.addEventListener('mouseleave', this.hideTooltip);
-            },
-            
-            showTooltip(element, text) {
-                const existingTooltip = document.querySelector('.folder-tooltip');
-                if (existingTooltip) existingTooltip.remove();
-                const tooltip = document.createElement('div');
-                tooltip.className = 'folder-tooltip';
-                tooltip.textContent = text;
-                document.body.appendChild(tooltip);
-                const rect = element.getBoundingClientRect();
-                tooltip.style.left = `${rect.left}px`;
-                tooltip.style.top = `${rect.bottom + 8}px`;
-                const tooltipRect = tooltip.getBoundingClientRect();
-                if (tooltipRect.right > window.innerWidth) {
-                    tooltip.style.left = `${window.innerWidth - tooltipRect.width - 10}px`;
-                }
-            },
-            
-            hideTooltip() {
-                const tooltip = document.querySelector('.folder-tooltip');
-                if (tooltip) tooltip.remove();
             },
             
             returnToFolderSelection() {
@@ -1682,7 +1671,7 @@
                     state.syncManager.requestSync();
                 }
                 state.activeRequests.abort(); 
-                this.resetViewState(); // FIX: Clear the view before showing folder screen
+                this.resetViewState();
                 if (state.providerType === 'googledrive') {
                     Utils.showScreen('gdrive-folder-screen');
                 } else if (state.providerType === 'onedrive') {
@@ -1690,12 +1679,10 @@
                 }
             },
 
-            // FIX: Reset view state to prevent "ghost images"
             resetViewState() {
                 state.imageFiles = [];
                 state.stacks = { in: [], out: [], priority: [], trash: [] };
                 Utils.elements.centerImage.src = 'data:image/gif;base64,R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs=';
-                Utils.elements.filenameOverlay.classList.remove('visible');
                 Core.updateStackCounts();
                 Core.showEmptyState();
                 Utils.elements.emptyState.classList.add('hidden');
@@ -1705,14 +1692,11 @@
                 const file = state.imageFiles.find(f => f.id === fileId);
                 if (!file) return;
                 Object.assign(file, updates);
-                // Save the single file's updated state to metadata cache
                 await state.dbManager.saveMetadata(file.id, file);
-                // Also save the entire folder state (for order changes, new files etc.)
                 await state.dbManager.saveFolderCache(state.currentFolder.id, state.imageFiles);
             },
             
             async deleteFile(fileId) {
-                // Tier 1: Update in-memory state
                 const fileIndex = state.imageFiles.findIndex(f => f.id === fileId);
                 if (fileIndex > -1) {
                     const [file] = state.imageFiles.splice(fileIndex, 1);
@@ -1720,15 +1704,12 @@
                     if (stackIndex > -1) { state.stacks[file.stack].splice(stackIndex, 1); }
                 }
                 
-                // Tier 2: Update local database
                 await state.dbManager.saveFolderCache(state.currentFolder.id, state.imageFiles);
                 
-                // Tier 3: Call provider to perform actual delete. This will be queued later.
                 try {
                     await state.provider.deleteFile(fileId);
                 } catch (e) {
                     Utils.showToast(`Failed to delete from cloud: ${e.message}`, 'error', true);
-                    // In a full sync model, we would queue this for retry.
                 }
             },
             
@@ -1738,7 +1719,6 @@
                     if (state.activeRequests.signal.aborted) return;
                     const batch = pngFiles.slice(i, i + BATCH_SIZE);
                     const promises = batch.map(file => {
-                        // FIX: Only process files that are actually pending
                         if (file.metadataStatus === 'pending') {
                             return this.processFileMetadata(file);
                         }
@@ -1751,9 +1731,17 @@
             async processFileMetadata(file) {
                 // FIX: More robust status checking to prevent re-processing
                 if (file.metadataStatus === 'loaded' || file.metadataStatus === 'loading' || file.metadataStatus === 'error') return;
+                
+                // FIX: Check for cancellation before proceeding
+                if (state.activeRequests.signal.aborted) return;
+
                 file.metadataStatus = 'loading';
                 try {
                     const metadata = await state.metadataExtractor.fetchMetadata(file);
+                    
+                    // FIX: Check for cancellation again after the async network request
+                    if (state.activeRequests.signal.aborted) return;
+
                     let finalMetadata = { ...file };
                     
                     if (metadata.error) {
@@ -1765,8 +1753,14 @@
                         finalMetadata.extractedMetadata = metadata;
                     }
                     
-                    await state.dbManager.saveMetadata(file.id, finalMetadata);
-                    Object.assign(file, finalMetadata);
+                    // FIX: Wrap DB operations in a try-catch and check for cancellation
+                    try {
+                        if (state.activeRequests.signal.aborted) return;
+                        await state.dbManager.saveMetadata(file.id, finalMetadata);
+                        Object.assign(file, finalMetadata);
+                    } catch (dbError) {
+                        console.warn(`DB write failed for ${file.name} during metadata extraction: ${dbError.message}`);
+                    }
 
                 } catch (error) {
                     if (error.name === 'AbortError') return;
@@ -1774,7 +1768,14 @@
                     file.metadataStatus = 'error';
                     file.extractedMetadata = { 'Error': error.message };
                     file.prompt = `Metadata Error: ${error.message}`;
-                    await state.dbManager.saveMetadata(file.id, file);
+                    
+                    // FIX: Also wrap this fallback DB write in a try-catch
+                    try {
+                         if (state.activeRequests.signal.aborted) return;
+                         await state.dbManager.saveMetadata(file.id, file);
+                    } catch (dbError) {
+                        console.warn(`DB write failed for ${file.name} after extraction error: ${dbError.message}`);
+                    }
                 }
             }
         };
@@ -1869,10 +1870,8 @@
                 await Utils.setImageSrc(Utils.elements.centerImage, currentFile);
                 
                 const folderName = state.currentFolder.name;
-                const truncatedFolder = folderName.length > 12 ? folderName.substring(0, 12) + '...' : folderName;
-                Utils.elements.filenameOverlay.textContent = `${truncatedFolder} / ${currentFile.name.replace(/\.[^/.]+$/, "")}`;
-                Utils.elements.filenameOverlay.href = state.export.getDirectImageURL(currentFile);
-                Utils.elements.filenameOverlay.classList.add('visible');
+                const truncatedFolder = folderName.length > 20 ? folderName.substring(0, 20) + '...' : folderName;
+                Utils.elements.focusFilenameDisplay.textContent = `${truncatedFolder} / ${currentFile.name.replace(/\.[^/.]+$/, "")}`;
 
                 state.currentScale = 1;
                 state.panOffset = { x: 0, y: 0 };
@@ -1883,6 +1882,7 @@
                 }
                 
                 this.updateImageCounters();
+                this.updateFavoriteButton();
             },
 
             updateImageCounters() {
@@ -1893,6 +1893,12 @@
                 Utils.elements.focusImageCount.textContent = text;
                 Utils.elements.normalImageCount.textContent = text;
                 Utils.elements.focusStackName.textContent = STACK_NAMES[state.currentStack];
+            },
+
+            updateFavoriteButton() {
+                const currentFile = state.stacks[state.currentStack]?.[state.currentStackPosition];
+                if (!currentFile) return;
+                Utils.elements.focusFavoriteBtn.classList.toggle('favorited', !!currentFile.favorite);
             },
             
             applyTransform() {
@@ -1944,7 +1950,6 @@
             showEmptyState() {
                 state.currentImageLoadId = null;
                 Utils.elements.centerImage.style.opacity = '0';
-                Utils.elements.filenameOverlay.classList.remove('visible');
                 Utils.elements.detailsButton.style.display = 'none';
                 this.updateImageCounters();
                 setTimeout(() => {
@@ -1994,7 +1999,7 @@
 
             initializeLazyLoad(stack) {
                 const lazyState = state.grid.lazyLoadState;
-                lazyState.allFiles = state.grid.filtered.length > 0 ? state.grid.filtered : state.stacks[stack];
+                lazyState.allFiles = state.grid.filtered.length > 0 ? state.grid.filtered : (state.stacks[stack] || []);
                 lazyState.renderedCount = 0;
                 Utils.elements.selectAllBtn.textContent = lazyState.allFiles.length;
                 this.renderBatch();
@@ -2059,7 +2064,7 @@
             
             updateSelectionUI() {
                 const count = state.grid.selected.length;
-                const buttons = [Utils.elements.tagSelected, Utils.elements.moveSelected, Utils.elements.deleteSelected, 
+                const buttons = [Utils.elements.tagSelected, Utils.elements.notesSelected, Utils.elements.moveSelected, Utils.elements.deleteSelected, 
                                Utils.elements.exportSelected, Utils.elements.folderSelected];
                 Utils.elements.selectionText.textContent = `${count} selected`;
                 buttons.forEach(btn => { if (btn) btn.disabled = (count === 0); });
@@ -2085,7 +2090,6 @@
                 const query = Utils.elements.omniSearch.value.trim();
                 Utils.elements.clearSearchBtn.style.display = query ? 'block' : 'none';
                 state.grid.selected = [];
-                if (!query) { this.resetSearch(); return; }
                 state.grid.filtered = this.searchImages(query);
                 Utils.elements.gridContainer.innerHTML = '';
                 this.initializeLazyLoad(state.grid.stack);
@@ -2104,12 +2108,38 @@
             },
             
             searchImages(query) {
-                const pattern = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/\\\*/g, '.*').replace(/\\\?/g, '.');
-                const regex = new RegExp(pattern, 'i');
-                return state.stacks[state.grid.stack].filter(file => {
-                    const searchableText = [ file.name || '', file.tags?.join(' ') || '', file.notes || '', JSON.stringify(file.extractedMetadata || {}) ].join(' ');
-                    return regex.test(searchableText);
-                });
+                const terms = query.toLowerCase().split(' ').filter(Boolean);
+                const includeTerms = terms.filter(t => !t.startsWith('-'));
+                const excludeTerms = terms.filter(t => t.startsWith('-')).map(t => t.substring(1));
+                let results = [...(state.stacks[state.grid.stack] || [])];
+
+                const hasFavorite = includeTerms.includes('#favorite');
+                const normalIncludeTerms = includeTerms.filter(t => t !== '#favorite');
+
+                if (hasFavorite) {
+                    results = results.filter(file => file.favorite === true);
+                }
+
+                if (normalIncludeTerms.length > 0) {
+                    results = results.filter(file => {
+                        const searchableText = [
+                            file.name, file.createdTime, file.modifiedTime, ...(file.tags || []),
+                            file.notes, JSON.stringify(file.extractedMetadata || {})
+                        ].join(' ').toLowerCase();
+                        return normalIncludeTerms.every(term => searchableText.includes(term));
+                    });
+                }
+
+                if (excludeTerms.length > 0) {
+                    results = results.filter(file => {
+                        const searchableText = [
+                            file.name, ...(file.tags || []), file.notes, JSON.stringify(file.extractedMetadata || {})
+                        ].join(' ').toLowerCase();
+                        return !excludeTerms.some(term => searchableText.includes(term));
+                    });
+                }
+                
+                return results;
             },
 
             async reorderStackOnClose() {
@@ -2133,7 +2163,6 @@
                     file.stackSequence = timestamp - i;
                 });
 
-                // FIX: Update all metadata in memory first, then do one bulk save to DB
                 for(const file of newStack) {
                     await state.dbManager.saveMetadata(file.id, file);
                 }
@@ -2141,7 +2170,6 @@
 
                 state.stacks[state.grid.stack] = newStack;
                 state.currentStackPosition = 0;
-                Utils.showToast('Stack order updated', 'success');
             }
         };
         const Details = {
@@ -2178,89 +2206,24 @@
                 Utils.elements.detailSize.textContent = size;
             },
             populateTagsTab(file) {
-                const tags = file.tags || [];
-                Utils.elements.detailTags.innerHTML = '';
-                tags.forEach(tag => {
-                    const tagElement = document.createElement('div');
-                    tagElement.className = 'tag-item';
-                    tagElement.innerHTML = `<span>${tag}</span><button class="tag-remove" data-tag="${tag}">×</button>`;
-                    Utils.elements.detailTags.appendChild(tagElement);
-                });
-                const addButton = document.createElement('div');
-                addButton.className = 'add-tag-btn'; addButton.textContent = '+ Add Tag';
-                addButton.addEventListener('click', () => this.showAddTagInput());
-                Utils.elements.detailTags.appendChild(addButton);
-                Utils.elements.detailTags.querySelectorAll('.tag-remove').forEach(btn => {
-                    btn.addEventListener('click', (e) => {
-                        const tagToRemove = e.target.dataset.tag;
-                        this.removeTag(file, tagToRemove);
+                const onUpdate = (updates) => {
+                    App.updateUserMetadata(file.id, updates).then(() => {
+                        this.populateTagsTab(state.imageFiles.find(f => f.id === file.id));
                     });
-                });
-            },
-            showAddTagInput() {
-                const input = document.createElement('input');
-                input.type = 'text'; input.className = 'tag-input';
-                input.placeholder = 'Enter tag name'; input.style.marginLeft = '8px';
-                const addButton = Utils.elements.detailTags.querySelector('.add-tag-btn');
-                addButton.parentNode.insertBefore(input, addButton);
-                input.focus();
-                input.addEventListener('keydown', (e) => {
-                    if (e.key === 'Enter') {
-                        const tagName = input.value.trim();
-                        if (tagName) {
-                            const currentFile = state.stacks[state.currentStack][state.currentStackPosition];
-                            const currentTags = currentFile.tags || [];
-                            const newTags = [...new Set([...currentTags, tagName])];
-                            App.updateUserMetadata(currentFile.id, { tags: newTags });
-                            state.tags.add(tagName);
-                            this.populateTagsTab(currentFile);
-                            input.remove();
-                        }
-                    } else if (e.key === 'Escape') { input.remove(); }
-                });
-                input.addEventListener('blur', () => { setTimeout(() => input.remove(), 100); });
-            },
-            removeTag(file, tagToRemove) {
-                const currentTags = file.tags || [];
-                const newTags = currentTags.filter(tag => tag !== tagToRemove);
-                App.updateUserMetadata(file.id, { tags: newTags });
-                this.populateTagsTab(file);
+                };
+                Utils.elements.detailTags.innerHTML = '';
+                Utils.elements.detailTags.appendChild(UI.createTaggingInterface(file, onUpdate));
             },
             populateNotesTab(file) {
-                Utils.elements.detailNotes.value = file.notes || '';
-                const newNotesTextarea = Utils.elements.detailNotes.cloneNode(true);
-                Utils.elements.detailNotes.parentNode.replaceChild(newNotesTextarea, Utils.elements.detailNotes);
-                Utils.elements.detailNotes = newNotesTextarea;
-                Utils.elements.detailNotes.addEventListener('blur', () => {
-                    const currentFile = state.stacks[state.currentStack][state.currentStackPosition];
-                    if (currentFile.notes !== Utils.elements.detailNotes.value) {
-                        App.updateUserMetadata(currentFile.id, { notes: Utils.elements.detailNotes.value });
-                    }
-                });
-                this.setupStarRating('quality', file.qualityRating || 0);
-                this.setupStarRating('content', file.contentRating || 0);
+                const onUpdate = (updates) => {
+                    App.updateUserMetadata(file.id, updates).then(() => {
+                        this.populateNotesTab(state.imageFiles.find(f => f.id === file.id));
+                    });
+                };
+                Utils.elements.detailNotes.innerHTML = '';
+                Utils.elements.detailNotes.appendChild(UI.createNotesInterface(file, onUpdate));
             },
-            setupStarRating(type, currentRating) {
-                const container = Utils.elements[`${type}Rating`]; if (!container) return;
-                let rating = currentRating;
-                const stars = container.querySelectorAll('.star');
-                const updateVisuals = (r) => { stars.forEach((star, index) => { star.classList.toggle('active', index < r); }); };
-                container.onmouseleave = () => updateVisuals(rating);
-                stars.forEach((star, index) => {
-                    star.onmouseenter = () => updateVisuals(index + 1);
-                    star.onclick = () => {
-                        const newRating = index + 1;
-                        if (newRating === rating) { rating = 0; } else { rating = newRating; }
-                        updateVisuals(rating);
-                        const currentFile = state.stacks[state.currentStack][state.currentStackPosition];
-                        if (!currentFile) return;
-                        const updatePayload = {};
-                        if (type === 'quality') { updatePayload.qualityRating = rating; } else { updatePayload.contentRating = rating; }
-                        App.updateUserMetadata(currentFile.id, updatePayload);
-                    };
-                });
-                updateVisuals(rating);
-            },
+            
             populateMetadataTab(file) {
                 Utils.elements.metadataTable.innerHTML = '';
                 if (file.metadataStatus !== 'loaded' && file.metadataStatus !== 'error') {
@@ -2330,9 +2293,15 @@
             currentAction: null,
             show(type, options = {}) {
                 this.currentAction = type;
-                const { title, content, confirmText = 'Confirm', confirmClass = 'btn-primary' } = options;
+                const { title, content, confirmText = 'Confirm', confirmClass = 'btn-primary', hideFooter = false } = options;
                 Utils.elements.actionTitle.textContent = title || 'Action';
-                Utils.elements.actionContent.innerHTML = content || '';
+                Utils.elements.actionContent.innerHTML = '';
+                if(typeof content === 'string') {
+                    Utils.elements.actionContent.innerHTML = content;
+                } else {
+                    Utils.elements.actionContent.appendChild(content);
+                }
+                Utils.elements.actionFooter.style.display = hideFooter ? 'none' : 'flex';
                 Utils.elements.actionConfirm.textContent = confirmText;
                 Utils.elements.actionConfirm.className = `btn ${confirmClass}`;
                 Utils.elements.actionConfirm.disabled = false;
@@ -2350,18 +2319,31 @@
                     option.addEventListener('click', () => { this.executeMove(option.dataset.stack); });
                 });
             },
-            setupTagAction() {
+             setupTagAction() {
+                const firstSelected = state.imageFiles.find(f => f.id === state.grid.selected[0]);
+                const onUpdate = (updates) => {
+                    this.executeTag(updates.tags);
+                };
+                const content = UI.createTaggingInterface(firstSelected || {tags: []}, onUpdate);
                 this.show('tag', {
-                    title: 'Add Tags',
-                    content: `<div style="margin-bottom: 16px;"><label style="display: block; font-size: 14px; font-weight: 500; color: #374151; margin-bottom: 4px;">Enter tags (comma separated)</label><input type="text" id="modal-tag-input" class="tag-input" placeholder="nature, landscape, vacation"></div><div id="modal-tag-suggestions" style="display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 16px;">${Array.from(state.tags).map(tag => `<button class="tag-suggestion" data-tag="${tag}" style="background-color: #e5e7eb; color: #374151; padding: 4px 8px; border-radius: 6px; font-size: 12px; cursor: pointer; transition: background-color 0.2s; border: none;">${tag}</button>`).join('')}</div>`,
-                    confirmText: 'Apply'
+                    title: `Tag ${state.grid.selected.length} Images`,
+                    content: content,
+                    hideFooter: true
                 });
-                document.querySelectorAll('.tag-suggestion').forEach(btn => {
-                    btn.addEventListener('click', () => {
-                        const input = document.getElementById('modal-tag-input');
-                        input.value += (input.value ? ', ' : '') + btn.dataset.tag;
-                    });
+            },
+            setupNotesAction() {
+                const firstSelected = state.imageFiles.find(f => f.id === state.grid.selected[0]);
+                let tempNotes = { ...firstSelected };
+                const onUpdate = (updates) => {
+                    Object.assign(tempNotes, updates);
+                };
+                const content = UI.createNotesInterface(firstSelected || {}, onUpdate);
+                 this.show('notes', {
+                    title: `Edit Notes for ${state.grid.selected.length} Images`,
+                    content,
+                    confirmText: 'Apply to All'
                 });
+                state.tempNotesForBulk = tempNotes;
             },
             setupDeleteAction() {
                 const selectedCount = state.grid.selected.length;
@@ -2372,7 +2354,7 @@
             setupExportAction() {
                 this.show('export', {
                     title: 'Export to Spreadsheet',
-                    content: `<p style="color: #4b5563; margin-bottom: 16px;">This will start the new Live Export process for ${state.grid.selected.length} selected image(s).</p><p style="color: #4b5563; margin-bottom: 16px;">It will fetch fresh data directly from the cloud to ensure 100% accuracy.</p>`,
+                    content: `<p style="color: #4b5563; margin-bottom: 16px;">This will start the new Live Export process for ${state.grid.selected.length} selected image(s).</p>`,
                     confirmText: 'Begin Export'
                 });
             },
@@ -2420,26 +2402,37 @@
                         const currentStack = file.stack; const newSequence = Date.now();
                         await App.updateUserMetadata(fileId, { stack: targetStack, stackSequence: newSequence });
                         const currentStackIndex = state.stacks[currentStack].findIndex(f => f.id === fileId);
-                        if (currentStackIndex !== -1) { state.stacks[currentStack].splice(currentStackIndex, 1); }
-                        file.stackSequence = newSequence;
-                        state.stacks[targetStack].unshift(file);
-                        state.stacks[targetStack] = Core.sortFiles(state.stacks[targetStack]);
+                        if (currentStackIndex !== -1) { 
+                            const [movedFile] = state.stacks[currentStack].splice(currentStackIndex, 1);
+                            movedFile.stack = targetStack;
+                            movedFile.stackSequence = newSequence;
+                            state.stacks[targetStack].unshift(movedFile);
+                            state.stacks[targetStack] = Core.sortFiles(state.stacks[targetStack]);
+                        }
                     }
-                }, `Moved {count} images to ${targetStack}`);
+                }, `Moved {count} images to ${STACK_NAMES[targetStack]}`);
             },
-            async executeTag() {
-                const tagInput = document.getElementById('modal-tag-input');
-                if (!tagInput.value.trim()) return;
-                const tagsToAdd = tagInput.value.split(',').map(tag => tag.trim()).filter(tag => tag);
+            async executeTag(tagsToAdd) {
                 await this.executeBulkAction(async (fileId) => {
                     const file = state.imageFiles.find(f => f.id === fileId);
                     if (file) {
-                        const currentTags = file.tags || [];
-                        const newTags = [...new Set([...currentTags, ...tagsToAdd])];
-                        await App.updateUserMetadata(fileId, { tags: newTags });
+                        await App.updateUserMetadata(fileId, { tags: tagsToAdd });
                         tagsToAdd.forEach(tag => state.tags.add(tag));
                     }
-                }, `Tags added to {count} images`, { refreshGrid: false });
+                }, `Tags updated for {count} images`, { refreshGrid: false, keepModalOpen: true });
+            },
+            async executeNotes() {
+                const updates = state.tempNotesForBulk;
+                await this.executeBulkAction(async (fileId) => {
+                    const file = state.imageFiles.find(f => f.id === fileId);
+                    if (file) {
+                        await App.updateUserMetadata(fileId, {
+                            notes: updates.notes,
+                            qualityRating: updates.qualityRating,
+                            contentRating: updates.contentRating
+                        });
+                    }
+                }, `Notes & ratings updated for {count} images`, { refreshGrid: false });
             },
             async executeDelete() {
                 await this.executeBulkAction(async (fileId) => {
@@ -2449,37 +2442,28 @@
             async executeExport() {
                 const fileIds = [...state.grid.selected];
                 const filesToExport = fileIds.map(id => state.imageFiles.find(f => f.id === id)).filter(f => f);
-                const total = filesToExport.length; const results = []; let failures = 0;
-                Utils.elements.actionTitle.textContent = `Live Export: 0 of ${total}`;
-                Utils.elements.actionContent.innerHTML = `<div style="background: #111; border: 1px solid #333; color: #eee; font-family: monospace; font-size: 12px; height: 250px; overflow-y: scroll; padding: 8px; white-space: pre-wrap;" id="export-log"></div>`;
-                const logEl = document.getElementById('export-log');
-                Utils.elements.actionConfirm.disabled = true; Utils.elements.actionCancel.textContent = "Close";
-                const log = (message) => { logEl.textContent += message + '\n'; logEl.scrollTop = logEl.scrollHeight; };
-                log(`Starting export for ${total} images...`);
+                const total = filesToExport.length; 
+                Utils.elements.actionTitle.textContent = `Exporting: 0 / ${total}`;
+                Utils.elements.actionContent.innerHTML = `<div class="loading-progress" style="margin-top: 1rem;"><div id="export-progress-bar" class="loading-progress-bar"></div></div>`;
+                const progressBar = document.getElementById('export-progress-bar');
+                Utils.elements.actionConfirm.disabled = true; 
+                Utils.elements.actionCancel.textContent = "Close";
+                
+                const results = [];
                 for (let i = 0; i < filesToExport.length; i++) {
                     const file = filesToExport[i];
-                    Utils.elements.actionTitle.textContent = `Live Export: ${i + 1} of ${total}`;
-                    log(`\n[${i+1}/${total}] Processing: ${file.name}`);
-                    let extractedMetadata = {}; let success = false;
-                    for (let attempt = 1; attempt <= 3; attempt++) {
-                        try {
-                            const metadata = await state.metadataExtractor.fetchMetadata(file, true);
-                            if (metadata.error) throw new Error(metadata.error);
-                            extractedMetadata = metadata; log(`  ✅ Success`); success = true; break;
-                        } catch (error) {
-                            log(`  ⚠️ Attempt ${attempt} failed: ${error.message}`);
-                            if (attempt < 3) { const delay = 1000 * attempt; log(`     Retrying in ${delay / 1000}s...`); await new Promise(res => setTimeout(res, delay));
-                            } else { log(`  ❌ FAILED permanently after 3 attempts.`); failures++; }
-                        }
+                    if (file.metadataStatus !== 'loaded') {
+                        await App.processFileMetadata(file);
                     }
-                    results.push({ ...file, extractedMetadata: extractedMetadata });
+                    results.push(file);
+                    progressBar.style.width = `${((i + 1) / total) * 100}%`;
                 }
-                log('\n-------------------------------------');
-                log('Export process complete.'); log(`Successfully processed: ${total - failures} files.`); log(`Failed: ${failures} files.`);
-                if (results.length > 0) { state.export.exportData(results); log('CSV file has been generated and downloaded.');
-                } else { log('No data to export.'); }
+
+                if (results.length > 0) {
+                    state.export.exportData(results);
+                }
                 Utils.elements.actionTitle.textContent = `Export Complete`;
-                Utils.elements.actionConfirm.disabled = true; Utils.elements.actionCancel.textContent = "Close";
+                Utils.elements.actionContent.textContent = `${results.length} items exported.`;
             },
             executeFolderMove() {
                 state.folderMoveMode = { active: true, files: [...state.grid.selected], };
@@ -2491,7 +2475,7 @@
             startPos: { x: 0, y: 0 }, currentPos: { x: 0, y: 0 }, gestureStarted: false, lastTapTime: 0, edgeElements: [],
             init() {
                 this.edgeElements = [Utils.elements.edgeTop, Utils.elements.edgeBottom, Utils.elements.edgeLeft, Utils.elements.edgeRight];
-                this.setupEventListeners(); this.setupPinchZoom(); this.setupFocusMode();
+                this.setupEventListeners(); this.setupPinchZoom(); this.setupTapZones();
             },
             setupEventListeners() {
                 Utils.elements.imageViewport.addEventListener('mousedown', this.handleStart.bind(this));
@@ -2507,17 +2491,15 @@
                 Utils.elements.centerImage.addEventListener('touchend', this.handleTouchEnd.bind(this), { passive: false });
                 Utils.elements.centerImage.addEventListener('wheel', this.handleWheel.bind(this), { passive: false });
             },
-            setupFocusMode() {
-                let startX = 0; let isSwiping = false;
-                Utils.elements.imageViewport.addEventListener('touchstart', (e) => {
-                    if (!state.isFocusMode || e.touches.length > 1) return;
-                    startX = e.touches[0].clientX; isSwiping = true;
-                });
-                Utils.elements.imageViewport.addEventListener('touchend', (e) => {
-                    if (!isSwiping || !state.isFocusMode) return;
-                    isSwiping = false; const endX = e.changedTouches[0].clientX; const deltaX = endX - startX;
-                    if (Math.abs(deltaX) > 50) { if (deltaX < 0) { this.nextImage(); } else { this.prevImage(); } }
-                });
+             setupTapZones() {
+                document.getElementById('quick-move-left').addEventListener('click', () => { if (!state.isFocusMode) this.executeFlick(this.directionToStack('left')); });
+                document.getElementById('quick-move-right').addEventListener('click', () => { if (!state.isFocusMode) this.executeFlick(this.directionToStack('right')); });
+                document.getElementById('quick-move-top').addEventListener('click', () => { if (!state.isFocusMode) this.executeFlick(this.directionToStack('top')); });
+                document.getElementById('quick-move-bottom').addEventListener('click', () => { if (!state.isFocusMode) this.executeFlick(this.directionToStack('bottom')); });
+
+                document.getElementById('focus-tap-left').addEventListener('click', () => { if (state.isFocusMode) this.prevImage(); });
+                document.getElementById('focus-tap-right').addEventListener('click', () => { if (state.isFocusMode) this.nextImage(); });
+                document.getElementById('focus-tap-center').addEventListener('click', () => { if (state.isFocusMode) this.toggleFocusMode(); });
             },
             showEdgeGlow(direction) {
                 this.edgeElements.forEach(edge => edge.classList.remove('active'));
@@ -2544,7 +2526,7 @@
                 const currentTime = Date.now();
                 if (currentTime - this.lastTapTime < 300) { e.preventDefault(); this.toggleFocusMode(); this.lastTapTime = 0; return; }
                 this.lastTapTime = currentTime;
-                if (state.isFocusMode) return;
+                
                 if (state.stacks[state.currentStack].length === 0) return;
                 if (e.touches && (e.touches.length > 1 || state.isPinching)) return;
                 if (state.currentScale > 1.1) return;
@@ -2556,7 +2538,7 @@
                 Utils.elements.centerImage.classList.add('dragging');
             },
             handleMove(e) {
-                if (!state.isDragging || state.isFocusMode) return;
+                if (!state.isDragging) return;
                 if (state.imageFiles.length === 0) return;
                 if (e.touches && e.touches.length > 1) {
                     state.isDragging = false; Utils.elements.centerImage.classList.remove('dragging');
@@ -2570,21 +2552,32 @@
                 const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
                 if (distance > 30) {
                     this.gestureStarted = true;
-                    const direction = this.determineSwipeDirection(deltaX, deltaY);
-                    if (direction) { this.hideAllEdgeGlows(); this.showEdgeGlow(direction); }
-                } else { this.hideAllEdgeGlows(); }
+                    if(!state.isFocusMode) {
+                        const direction = this.determineSwipeDirection(deltaX, deltaY);
+                        if (direction) { this.hideAllEdgeGlows(); this.showEdgeGlow(direction); }
+                    }
+                } else { 
+                    if(!state.isFocusMode) this.hideAllEdgeGlows(); 
+                }
             },
             handleEnd(e) {
-                if (!state.isDragging || state.isFocusMode) return;
+                if (!state.isDragging) return;
                 state.isDragging = false; Utils.elements.centerImage.classList.remove('dragging');
                 if (!this.gestureStarted) { this.hideAllEdgeGlows(); return; }
+                
                 const deltaX = this.currentPos.x - this.startPos.x;
                 const deltaY = this.currentPos.y - this.startPos.y;
                 const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
+                
                 if (distance > 80) {
-                    const direction = this.determineSwipeDirection(deltaX, deltaY);
-                    const targetStack = this.directionToStack(direction);
-                    if (targetStack && direction) { this.executeFlick(targetStack); return; }
+                    if(state.isFocusMode){
+                         if (deltaX < 0) { this.nextImage(); } 
+                         else { this.prevImage(); }
+                    } else {
+                        const direction = this.determineSwipeDirection(deltaX, deltaY);
+                        const targetStack = this.directionToStack(direction);
+                        if (targetStack && direction) { this.executeFlick(targetStack); return; }
+                    }
                 }
                 this.hideAllEdgeGlows();
             },
@@ -2671,7 +2664,16 @@
                         });
                         Utils.elements.gdriveFolderList.appendChild(div);
                     });
-                } catch (error) { Utils.showToast(`Error loading folders: ${error.message}`, 'error', true); }
+                } catch (error) { 
+                    // FIX: Handle 401 Unauthorized specifically
+                    if (error.message.includes('401')) {
+                        Utils.showToast('Session expired. Please reconnect.', 'error', true);
+                        state.provider.disconnect();
+                        App.backToProviderSelection();
+                    } else {
+                        Utils.showToast(`Error loading folders: ${error.message}`, 'error', true);
+                    }
+                }
             },
             async loadOneDriveFolders() {
                 Utils.elements.onedriveFolderList.innerHTML = `<div style="display: flex; align-items: center; justify-content: center; padding: 40px; color: rgba(255, 255, 255, 0.7);"><div class="spinner"></div><span>Loading folders...</span></div>`;
@@ -2750,7 +2752,7 @@
         };
         const UI = {
             updateEmptyStateButtons() {
-                const stacksWithImages = STACKS.filter(stack => state.stacks[stack].length > 0);
+                const stacksWithImages = STACKS.filter(stack => state.stacks[stack] && state.stacks[stack].length > 0);
                 const hasOtherStacks = stacksWithImages.some(stack => stack !== state.currentStack);
                 Utils.elements.selectAnotherStackBtn.style.display = hasOtherStacks ? 'block' : 'none';
                 Utils.elements.selectAnotherFolderBtn.style.display = 'block';
@@ -2759,20 +2761,157 @@
                 const pill = document.getElementById(`pill-${stackName}`);
                 if (pill) {
                     pill.classList.remove('triple-ripple', 'glow-effect');
-                    pill.offsetHeight; pill.classList.add('triple-ripple');
-                    setTimeout(() => { pill.classList.add('glow-effect'); }, 100);
-                    setTimeout(() => { pill.classList.remove('triple-ripple', 'glow-effect'); }, 3000);
+                    void pill.offsetWidth;
+                    pill.classList.add('triple-ripple');
+                    
+                    setTimeout(() => {
+                        pill.classList.add('glow-effect');
+                    }, 100);
+                    
+                    setTimeout(() => {
+                        pill.classList.remove('triple-ripple', 'glow-effect');
+                    }, 3000);
                 }
             },
-            switchToStack(stackName) { Core.displayTopImageFromStack(stackName); },
-            cycleThroughProxTabs() {
+            
+            switchToStack(stackName) {
+                Core.displayTopImageFromStack(stackName);
+            },
+            
+            cycleThroughPills() {
                 const stackOrder = ['in', 'out', 'priority', 'trash'];
                 const currentIndex = stackOrder.indexOf(state.currentStack);
                 const nextIndex = (currentIndex + 1) % stackOrder.length;
                 const nextStack = stackOrder[nextIndex];
+                
                 this.switchToStack(nextStack);
-            }
+            },
+            createTaggingInterface(file, onUpdate) {
+                const container = document.createElement('div');
+                container.className = 'tags-container';
+
+                const assignedTags = file.tags || [];
+
+                container.innerHTML = `
+                    <div class="tags-section">
+                        <div class="tags-section-title">Assigned Tags</div>
+                        <div class="tag-list" id="assigned-tags-list"></div>
+                    </div>
+                    <div class="tags-section">
+                        <div class="tags-section-title">Add New Tag</div>
+                        <input type="text" class="tag-input" placeholder="Type new tag and press Enter...">
+                    </div>
+                    <div class="tags-section">
+                        <div class="tags-section-title">Recently Used Tags</div>
+                        <div class="tag-list" id="recent-tags-list"></div>
+                    </div>
+                `;
+
+                const assignedList = container.querySelector('#assigned-tags-list');
+                const recentList = container.querySelector('#recent-tags-list');
+                const tagInput = container.querySelector('.tag-input');
+
+                assignedTags.forEach(tag => {
+                    const tagEl = document.createElement('div');
+                    tagEl.className = 'tag-item';
+                    tagEl.innerHTML = `<span>${tag}</span><button class="tag-remove" data-tag="${tag}">×</button>`;
+                    assignedList.appendChild(tagEl);
+                });
+
+                Array.from(state.tags).forEach(tag => {
+                    if (!assignedTags.includes(tag)) {
+                        const tagEl = document.createElement('div');
+                        tagEl.className = 'tag-item tag-suggestion';
+                        tagEl.textContent = tag;
+                        tagEl.dataset.tag = tag;
+                        recentList.appendChild(tagEl);
+                    }
+                });
+
+                tagInput.addEventListener('keydown', (e) => {
+                    if (e.key === 'Enter') {
+                        const newTag = tagInput.value.trim();
+                        if (newTag && !assignedTags.includes(newTag)) {
+                            const newTags = [...assignedTags, newTag];
+                            state.tags.add(newTag);
+                            onUpdate({ tags: newTags });
+                        }
+                        tagInput.value = '';
+                    }
+                });
+
+                container.addEventListener('click', (e) => {
+                    if (e.target.classList.contains('tag-remove')) {
+                        const tagToRemove = e.target.dataset.tag;
+                        const newTags = assignedTags.filter(t => t !== tagToRemove);
+                        onUpdate({ tags: newTags });
+                    }
+                    if (e.target.classList.contains('tag-suggestion')) {
+                        const tagToAdd = e.target.dataset.tag;
+                        if (!assignedTags.includes(tagToAdd)) {
+                            const newTags = [...assignedTags, tagToAdd];
+                            onUpdate({ tags: newTags });
+                        }
+                    }
+                });
+
+                return container;
+            },
+
+            createNotesInterface(file, onUpdate) {
+                const container = document.createElement('div');
+                
+                container.innerHTML = `
+                    <div style="margin-bottom: 24px;">
+                        <label for="detail-notes-dynamic" style="font-size: 14px; color: #6b7280; font-weight: 500;">Notes:</label>
+                        <textarea id="detail-notes-dynamic" class="notes-textarea" placeholder="Add your notes here..."></textarea>
+                    </div>
+                    <div style="margin-bottom: 20px;">
+                        <div style="font-size: 14px; font-weight: 500; color: #374151; margin-bottom: 8px;">Quality Rating:</div>
+                        <div class="star-rating" id="quality-rating-dynamic">
+                            ${'<svg class="star" data-rating="1" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>'.repeat(5)}
+                        </div>
+                    </div>
+                    <div>
+                        <div style="font-size: 14px; font-weight: 500; color: #374151; margin-bottom: 8px;">Content Rating:</div>
+                        <div class="star-rating" id="content-rating-dynamic">
+                             ${'<svg class="star" data-rating="1" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>'.repeat(5)}
+                        </div>
+                    </div>
+                `;
+
+                const notesTextarea = container.querySelector('#detail-notes-dynamic');
+                notesTextarea.value = file.notes || '';
+                notesTextarea.addEventListener('blur', () => {
+                    if (file.notes !== notesTextarea.value) {
+                        onUpdate({ notes: notesTextarea.value });
+                    }
+                });
+
+                const setupStars = (type, currentRating) => {
+                    const starContainer = container.querySelector(`#${type}-rating-dynamic`);
+                    let rating = currentRating;
+                    const stars = starContainer.querySelectorAll('.star');
+                    const updateVisuals = r => stars.forEach((s, i) => s.classList.toggle('active', i < r));
+                    starContainer.onmouseleave = () => updateVisuals(rating);
+                    stars.forEach((star, index) => {
+                        star.onmouseenter = () => updateVisuals(index + 1);
+                        star.onclick = () => {
+                            rating = (index + 1 === rating) ? 0 : index + 1;
+                            updateVisuals(rating);
+                            onUpdate({ [`${type}Rating`]: rating });
+                        };
+                    });
+                    updateVisuals(rating);
+                };
+
+                setupStars('quality', file.qualityRating || 0);
+                setupStars('content', file.contentRating || 0);
+                
+                return container;
+            },
         };
+
         const Events = {
             init() {
                 this.setupProviderSelection(); this.setupSettings(); this.setupGoogleDriveAuth();
@@ -2832,6 +2971,7 @@
                 Utils.elements.onedriveBackButton.addEventListener('click', () => App.backToProviderSelection());
             },
             setupFolderManagement() {
+                Utils.elements.backButton.addEventListener('click', () => App.returnToFolderSelection());
                 Utils.elements.gdriveRefreshFolders.addEventListener('click', () => Folders.loadGoogleDriveFolders());
                 Utils.elements.gdriveBackToProvider.addEventListener('click', () => App.backToProviderSelection());
                 Utils.elements.gdriveLogout.addEventListener('click', () => { state.provider.disconnect(); App.backToProviderSelection(); });
@@ -2852,8 +2992,16 @@
                 Utils.elements.detailsClose.addEventListener('click', () => Details.hide());
             },
             setupFocusMode() {
+                Utils.elements.centerTrashBtn.addEventListener('click', () => Core.moveToStack('trash'));
                 Utils.elements.focusStackName.addEventListener('click', () => Modal.setupFocusStackSwitch());
                 Utils.elements.focusDeleteBtn.addEventListener('click', () => Gestures.deleteCurrentImage());
+                Utils.elements.focusFavoriteBtn.addEventListener('click', async () => {
+                    const currentFile = state.stacks[state.currentStack]?.[state.currentStackPosition];
+                    if (!currentFile) return;
+                    const isFavorite = !currentFile.favorite;
+                    await App.updateUserMetadata(currentFile.id, { favorite: isFavorite });
+                    Core.updateFavoriteButton();
+                });
             },
             setupTabs() { document.querySelectorAll('.tab-button').forEach(btn => { btn.addEventListener('click', () => Details.switchTab(btn.dataset.tab)); }); },
             setupCopyButtons() {
@@ -2886,7 +3034,11 @@
                         pill.addEventListener('click', (e) => {
                             e.stopPropagation();
                             if (state.haptic) { state.haptic.triggerFeedback('pillTap'); }
-                            if (state.currentStack === stackName) { Grid.open(stackName); } else { UI.switchToStack(stackName); }
+                             if (state.currentStack === stackName) {
+                                Grid.open(stackName);
+                            } else {
+                                UI.switchToStack(stackName);
+                            }
                             UI.acknowledgePillCounter(stackName);
                         });
                     }
@@ -2909,13 +3061,18 @@
             setupActionButtons() {
                 Utils.elements.moveSelected.addEventListener('click', () => Modal.setupMoveAction());
                 Utils.elements.tagSelected.addEventListener('click', () => Modal.setupTagAction());
+                Utils.elements.notesSelected.addEventListener('click', () => Modal.setupNotesAction());
                 Utils.elements.deleteSelected.addEventListener('click', () => Modal.setupDeleteAction());
                 Utils.elements.exportSelected.addEventListener('click', () => Modal.setupExportAction());
                 Utils.elements.folderSelected.addEventListener('click', () => Modal.setupFolderMoveAction());
+                Utils.elements.actionClose.addEventListener('click', () => Modal.hide());
                 Utils.elements.actionCancel.addEventListener('click', () => Modal.hide());
                 Utils.elements.actionConfirm.addEventListener('click', () => {
                     if (Modal.currentAction === 'move') { /* handled by buttons */
-                    } else if (Modal.currentAction === 'tag') { Modal.executeTag();
+                    } else if (Modal.currentAction === 'tag') { 
+                        Modal.hide();
+                    } else if (Modal.currentAction === 'notes') { 
+                        Modal.executeNotes();
                     } else if (Modal.currentAction === 'delete') { Modal.executeDelete();
                     } else if (Modal.currentAction === 'export') { Modal.executeExport();
                     } else if (Modal.currentAction === 'folder-move') { Modal.executeFolderMove(); }
@@ -2941,7 +3098,7 @@
                         return;
                     }
                     switch (e.key) {
-                        case 'Tab': e.preventDefault(); UI.cycleThroughProxTabs(); break;
+                        case 'Tab': e.preventDefault(); UI.cycleThroughPills(); break;
                         case 'Escape': App.returnToFolderSelection(); break;
                     }
                 });
@@ -2969,3 +3126,4 @@
     </script>
 </body>
 </html>
+
