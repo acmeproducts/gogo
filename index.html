@@ -1,4 +1,4 @@
-<!-- performance_v3 - 2025-09-15 01:03 AM -->
+<!-- performance_v4 - 2025-09-15 01:30 AM -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -381,7 +381,7 @@
             font-size: 10px; z-index: 5; backdrop-filter: blur(10px);
         }
 
-        /* CHANGE: Standardized UI Button styles */
+        /* Standardized UI Button */
         .ui-button {
             background: rgba(0, 0, 0, 0.4);
             color: #e5e7eb; /* light grey */
@@ -399,13 +399,13 @@
             position: absolute;
         }
 
-        /* CHANGE: Applying standardized UI styles */
+        /* Applying standardized UI styles */
         #back-button { top: 20px; left: 20px; }
         #details-button { top: 20px; right: 20px; }
         #normal-image-count { bottom: 20px; left: 20px; }
         #center-trash-btn { bottom: 20px; right: 20px; }
 
-        /* CHANGE: Focus Mode UI elements styling */
+        /* Focus Mode UI elements */
         .focus-mode-ui { display: none; }
         #focus-stack-name { top: 20px; left: 20px; }
         #focus-filename-display {
@@ -417,10 +417,10 @@
         /* CHANGE: Favorite button wrapper for larger tap area */
         #focus-favorite-wrapper {
             position: absolute;
-            bottom: 10px;
+            bottom: 10px; /* Adjusted position */
             left: 50%;
             transform: translateX(-50%);
-            padding: 10px;
+            padding: 10px; /* Creates larger invisible tap area */
             border-radius: 50%;
             z-index: 21;
             cursor: pointer;
@@ -447,7 +447,7 @@
             fill: #ef4444;
         }
         
-        /* CHANGE: Focus Mode state toggling */
+        /* Focus Mode state toggling */
         .app-container.focus-mode .pill-counter,
         .app-container.focus-mode #back-button,
         .app-container.focus-mode #normal-image-count,
@@ -461,18 +461,18 @@
             .app-container, .image-viewport { height: 100dvh; }
         }
 
-        /* CHANGE: Tap Zones for Navigation */
+        /* CHANGE: Unified Nav Zones */
         .quick-move-zone, .focus-tap-zone {
             position: absolute;
             z-index: 3;
+            /* For debugging: background: rgba(255, 0, 0, 0.1); */
         }
-        /* Center Stage tap zones are now 30% */
         #quick-move-top { top: 0; left: 0; right: 0; height: 30%; }
         #quick-move-bottom { bottom: 0; left: 0; right: 0; height: 30%; }
         #quick-move-left { left: 0; top: 0; bottom: 0; width: 30%; }
         #quick-move-right { right: 0; top: 0; bottom: 0; width: 30%; }
 
-        /* CHANGE: Tap-to-focus zone for Center Stage */
+        /* CHANGE: Tap-to-focus zone */
         #center-stage-tap-zone {
             position: absolute;
             top: 30%; left: 30%;
@@ -488,9 +488,8 @@
         }
         .focus-tap-zone {
              top: 0; bottom: 0;
-             display: none; /* Hidden by default */
+             display: none;
         }
-        /* Focus mode tap zones are now 30% / 40% / 30% */
         #focus-tap-left { left: 0; width: 30%; }
         #focus-tap-center { left: 30%; width: 40%; }
         #focus-tap-right { right: 0; width: 30%; }
@@ -533,7 +532,7 @@
             </div>
             <div id="provider-status" class="status info">Choose your preferred cloud storage</div>
         </div>
-        <div class="app-footer" id="footer-provider">performance_v3 - 2025-09-15 01:03 AM</div>
+        <div class="app-footer" id="footer-provider">performance_v4 - 2025-09-15 01:30 AM</div>
     </div>
     
     <!-- Google Drive Auth Screen -->
@@ -546,7 +545,7 @@
             <button class="button" id="gdrive-back-button" style="background: rgba(128,128,128,0.3);">← Back</button>
             <div id="gdrive-auth-status" class="status info">Enter your client secret to continue</div>
         </div>
-        <div class="app-footer" id="footer-gdrive-auth">performance_v3 - 2025-09-15 01:03 AM</div>
+        <div class="app-footer" id="footer-gdrive-auth">performance_v4 - 2025-09-15 01:30 AM</div>
     </div>
     
     <!-- OneDrive Auth Screen -->
@@ -558,7 +557,7 @@
             <button class="button" id="onedrive-back-button" style="background: rgba(128,128,128,0.3);">← Back</button>
             <div id="onedrive-auth-status" class="status info">Click to sign in with your Microsoft account</div>
         </div>
-        <div class="app-footer" id="footer-onedrive-auth">performance_v3 - 2025-09-15 01:03 AM</div>
+        <div class="app-footer" id="footer-onedrive-auth">performance_v4 - 2025-09-15 01:30 AM</div>
     </div>
     
     <!-- Google Drive Folder Screen -->
@@ -573,7 +572,7 @@
                 <button class="folder-button danger" id="gdrive-logout">Disconnect</button>
             </div>
         </div>
-        <div class="app-footer" id="footer-gdrive-folder">performance_v3 - 2025-09-15 01:03 AM</div>
+        <div class="app-footer" id="footer-gdrive-folder">performance_v4 - 2025-09-15 01:30 AM</div>
     </div>
     
     <!-- OneDrive Folder Screen -->
@@ -588,7 +587,7 @@
                 <button class="folder-button danger" id="onedrive-logout">Disconnect</button>
             </div>
         </div>
-        <div class="app-footer" id="footer-onedrive-folder">performance_v3 - 2025-09-15 01:03 AM</div>
+        <div class="app-footer" id="footer-onedrive-folder">performance_v4 - 2025-09-15 01:30 AM</div>
     </div>
     
     <!-- Loading Screen -->
@@ -602,7 +601,7 @@
             </div>
             <button class="button" id="cancel-loading" style="background: rgba(239, 68, 68, 0.8); margin-top: 16px;">Cancel</button>
         </div>
-        <div class="app-footer" id="footer-loading">performance_v3 - 2025-09-15 01:03 AM</div>
+        <div class="app-footer" id="footer-loading">performance_v4 - 2025-09-15 01:30 AM</div>
     </div>
     
     <!-- Main App Container -->
@@ -616,14 +615,13 @@
         <div class="image-viewport" id="image-viewport">
             <img class="center-image zoomable" id="center-image" alt="Select a folder to start" />
         </div>
-         <!-- CHANGE: Added a dedicated tap zone for entering focus mode -->
+        <!-- CHANGE: Added dedicated tap zones for navigation and mode toggling -->
         <div id="quick-move-top" class="quick-move-zone"></div>
         <div id="quick-move-bottom" class="quick-move-zone"></div>
         <div id="quick-move-left" class="quick-move-zone"></div>
         <div id="quick-move-right" class="quick-move-zone"></div>
         <div id="center-stage-tap-zone"></div>
 
-        <!-- CHANGE: Unified tap zones for focus mode navigation -->
         <div id="focus-tap-left" class="focus-tap-zone"></div>
         <div id="focus-tap-center" class="focus-tap-zone"></div>
         <div id="focus-tap-right" class="focus-tap-zone"></div>
@@ -669,7 +667,7 @@
         </button>
         
         <div id="toast" class="toast"></div>
-        <div class="app-footer" id="footer-main">performance_v3 - 2025-09-15 01:03 AM</div>
+        <div class="app-footer" id="footer-main">performance_v4 - 2025-09-15 01:30 AM</div>
     </div>
     
     <!-- Enhanced Grid Modal -->
@@ -1682,7 +1680,6 @@
                 for (let i = 0; i < files.length; i++) {
                     const file = files[i];
 
-                    // CHANGE: Cloud Data Precedence Logic
                     const cachedMetadata = await state.dbManager.getMetadata(file.id);
                     const cloudProperties = this.generateDefaultMetadata(file);
 
@@ -1699,7 +1696,6 @@
             },
 
             generateDefaultMetadata(file) {
-                // CHANGE: This function now correctly reads appProperties from Google Drive to merge with local cache.
                 const baseMetadata = { 
                     stack: 'in', 
                     tags: [], 
@@ -2454,11 +2450,11 @@
                 Utils.elements.detailsClose.addEventListener('click', () => Details.hide());
             },
             setupFocusMode() {
-                // CHANGE: Added async/await for consistent UI updates on the trash icon click.
+                // CHANGE: Added async/await for consistent UI updates.
                 Utils.elements.centerTrashBtn.addEventListener('click', async () => await Core.moveToStack('trash'));
                 Utils.elements.focusStackName.addEventListener('click', () => Modal.setupFocusStackSwitch());
                 Utils.elements.focusDeleteBtn.addEventListener('click', () => Gestures.deleteCurrentImage());
-                // CHANGE: Listener moved to larger wrapper for an easier tap target on the favorite button.
+                // CHANGE: Listener moved to larger wrapper for an easier tap target.
                 Utils.elements.focusFavoriteWrapper.addEventListener('click', async () => {
                     const currentFile = state.stacks[state.currentStack]?.[state.currentStackPosition];
                     if (!currentFile) return;
