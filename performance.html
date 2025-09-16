@@ -1,4 +1,4 @@
-<!-- orbital8-v16-stable-ui-2025-09-15 04:23 PM Verision F attempt 2-->
+<!-- orbital8-v19-release-h - 2025-09-15 05:04 PM -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -249,12 +249,17 @@
         }
         .new-images-button:hover { background: rgba(245, 158, 11, 0.4); transform: translateY(-2px); }
         
-        .modal { position: fixed; inset: 0; background-color: rgba(0, 0, 0, 0.5); display: flex; align-items: center; justify-content: center; z-index: 50; }
+        .modal { 
+            position: fixed; top: 0; left: 0;
+            background-color: rgba(0, 0, 0, 0.5); display: flex; align-items: center; justify-content: center; z-index: 50; 
+            width: 100vw; height: 100vh;
+        }
         .modal.hidden { display: none !important; }
         .modal-content {
             background: white; border-radius: 8px; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-            width: 100%; height: 100%; max-width: 1152px; max-height: 90vh; margin: 16px;
+            width: 100%; max-width: 1152px; max-height: 90vh;
             display: flex; flex-direction: column;
+            position: absolute; 
         }
         .action-modal { max-width: 448px; padding: 24px; }
         
@@ -305,6 +310,27 @@
             color: #9ca3af; cursor: pointer; display: none;
         }
         #clear-search-btn:hover { color: #6b7280; }
+
+        .search-info {
+            position: relative;
+            display: inline-block;
+            margin-left: 8px;
+        }
+        .search-info-icon {
+            width: 16px; height: 16px; border-radius: 50%; background: #9ca3af; color: white;
+            display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: bold;
+            cursor: pointer;
+        }
+        .search-info-popup {
+            display: none; position: absolute; bottom: 125%; left: 50%; transform: translateX(-50%);
+            background: #374151; color: white; border-radius: 6px; padding: 8px;
+            width: 200px; font-size: 12px; box-shadow: 0 2px 10px rgba(0,0,0,0.5); z-index: 100;
+        }
+        .search-info:hover .search-info-popup { display: block; }
+        .search-info-popup a {
+            display: block; color: #a5b4fc; text-decoration: none; padding: 4px; border-radius: 4px;
+        }
+        .search-info-popup a:hover { background-color: #4f46e5; color: white; }
         
         .grid-row-4 {
             padding: 8px 16px; border-bottom: 1px solid #e5e7eb; min-height: 41px; display: flex; justify-content: flex-start;
@@ -328,9 +354,11 @@
         .grid-image.loaded { opacity: 1; }
         .grid-item.selected { box-shadow: 0 0 0 4px #3b82f6; }
         
-        .details-modal-content { max-width: 800px; max-height: 95vh; height: 95vh; display: flex; flex-direction: column; }
+        .details-modal-content { max-width: 800px; max-height: 95vh; display: flex; flex-direction: column; resize: both; overflow: auto; }
         .details-header { display: flex; align-items: center; justify-content: space-between; padding: 16px; border-bottom: 1px solid #e5e7eb; flex-shrink: 0; }
+        .modal-header-draggable { cursor: move; flex-grow: 1; }
         .details-title { font-size: 18px; font-weight: 500; color: #1f2937; }
+        
         .tab-nav { display: flex; border-bottom: 1px solid #e5e7eb; background: #f8fafc; flex-shrink: 0; }
         .tab-button {
             flex: 1; padding: 16px; border: none; background: transparent; color: #6b7280; font-size: 14px; font-weight: 500;
@@ -350,11 +378,12 @@
         .tag-item { display: inline-flex; align-items: center; background: #dbeafe; color: #1e40af; padding: 4px 8px; border-radius: 12px; font-size: 12px; gap: 6px; }
         .tag-suggestion { background: #e5e7eb; color: #374151; cursor: pointer; }
         .tag-remove {
-            background: transparent; border: none; color: #1e40af; cursor: pointer; font-size: 14px; line-height: 1; padding: 0;
+            background: transparent; border: none; color: inherit; cursor: pointer; font-size: 14px; line-height: 1; padding: 0;
             width: 16px; height: 16px; display: flex; align-items: center; justify-content: center; border-radius: 50%; transition: background-color 0.2s;
         }
-        .tag-remove:hover { background: rgba(59, 130, 246, 0.1); }
-        
+        .tag-item .tag-remove:hover { background: rgba(59, 130, 246, 0.1); }
+        .tag-suggestion .tag-remove:hover { background: rgba(0,0,0,0.1); }
+
         .star-rating { display: flex; gap: 4px; }
         .star { width: 24px; height: 24px; cursor: pointer; color: #d1d5db; transition: color 0.2s; }
         .star:hover, .star.active { color: #fbbf24; }
@@ -383,7 +412,7 @@
 
         .ui-button {
             background: rgba(0, 0, 0, 0.4);
-            color: #e5e7eb; /* light grey */
+            color: #e5e7eb;
             border: 1px solid rgba(255, 255, 255, 0.2);
             border-radius: 20px;
             z-index: 20;
@@ -391,7 +420,7 @@
             align-items: center;
             justify-content: center;
             backdrop-filter: blur(10px);
-            transition: none; /* No hover effect */
+            transition: none;
             font-size: 14px;
             padding: 10px 16px;
             cursor: pointer;
@@ -421,10 +450,10 @@
             cursor: pointer;
             z-index: 20;
             padding: 0;
-            color: #9ca3af; /* Standalone grey outline */
+            color: #9ca3af;
         }
         #focus-favorite-btn.favorited {
-            color: #ef4444; /* Solid red */
+            color: #ef4444;
         }
         
         .app-container.focus-mode .pill-counter,
@@ -498,7 +527,7 @@
             </div>
             <div id="provider-status" class="status info">Choose your preferred cloud storage</div>
         </div>
-        <div class="app-footer">orbital8-v16-stable-ui - 2025-09-15 03:55 PM</div>
+        <div class="app-footer" id="footer-provider">orbital8-v18-release-g - 2025-09-15 04:43 PM</div>
     </div>
     
     <!-- Google Drive Auth Screen -->
@@ -511,7 +540,7 @@
             <button class="button" id="gdrive-back-button" style="background: rgba(128,128,128,0.3);">← Back</button>
             <div id="gdrive-auth-status" class="status info">Enter your client secret to continue</div>
         </div>
-        <div class="app-footer">orbital8-v16-stable-ui - 2025-09-15 03:55 PM</div>
+        <div class="app-footer" id="footer-gdrive-auth">orbital8-v18-release-g - 2025-09-15 04:43 PM</div>
     </div>
     
     <!-- OneDrive Auth Screen -->
@@ -523,7 +552,7 @@
             <button class="button" id="onedrive-back-button" style="background: rgba(128,128,128,0.3);">← Back</button>
             <div id="onedrive-auth-status" class="status info">Click to sign in with your Microsoft account</div>
         </div>
-        <div class="app-footer">orbital8-v16-stable-ui - 2025-09-15 03:55 PM</div>
+        <div class="app-footer" id="footer-onedrive-auth">orbital8-v18-release-g - 2025-09-15 04:43 PM</div>
     </div>
     
     <!-- Google Drive Folder Screen -->
@@ -538,7 +567,7 @@
                 <button class="folder-button danger" id="gdrive-logout">Disconnect</button>
             </div>
         </div>
-        <div class="app-footer">orbital8-v16-stable-ui - 2025-09-15 03:55 PM</div>
+        <div class="app-footer" id="footer-gdrive-folder">orbital8-v18-release-g - 2025-09-15 04:43 PM</div>
     </div>
     
     <!-- OneDrive Folder Screen -->
@@ -553,7 +582,7 @@
                 <button class="folder-button danger" id="onedrive-logout">Disconnect</button>
             </div>
         </div>
-        <div class="app-footer">orbital8-v16-stable-ui - 2025-09-15 03:55 PM</div>
+        <div class="app-footer" id="footer-onedrive-folder">orbital8-v18-release-g - 2025-09-15 04:43 PM</div>
     </div>
     
     <!-- Loading Screen -->
@@ -567,7 +596,7 @@
             </div>
             <button class="button" id="cancel-loading" style="background: rgba(239, 68, 68, 0.8); margin-top: 16px;">Cancel</button>
         </div>
-        <div class="app-footer">orbital8-v16-stable-ui - 2025-09-15 03:55 PM</div>
+        <div class="app-footer" id="footer-loading">orbital8-v18-release-g - 2025-09-15 04:43 PM</div>
     </div>
     
     <!-- Main App Container -->
@@ -579,7 +608,6 @@
         <button class="ui-button" id="details-button">Details</button>
         
         <div class="image-viewport" id="image-viewport">
-            <!-- REVERT: Using a single, persistent image element for stability -->
             <img class="center-image zoomable" id="center-image" alt="Select a folder to start" />
         </div>
 
@@ -628,14 +656,14 @@
         </button>
         
         <div id="toast" class="toast"></div>
-        <div class="app-footer">orbital8-v16-stable-ui - 2025-09-15 03:55 PM</div>
+        <div class="app-footer" id="footer-main">orbital8-v18-release-g - 2025-09-15 04:43 PM</div>
     </div>
     
     <!-- Enhanced Grid Modal -->
     <div id="grid-modal" class="modal hidden">
         <div class="modal-content">
             <div class="modal-header">
-                <div class="modal-header-main">
+                <div class="modal-header-main modal-header-draggable">
                     <div class="modal-header-left">
                         <h2 id="grid-title" class="modal-title">Grid View</h2>
                         <button id="select-all-btn" class="select-all-btn">0</button>
@@ -663,10 +691,19 @@
                 </div>
                 
                 <div class="grid-row-3">
-                    <input type="text" id="omni-search" class="input" placeholder="Search images... (#favorite, -tag)" style="margin-bottom: 0;">
+                    <input type="text" id="omni-search" class="input" placeholder="Search images..." style="margin-bottom: 0;">
                     <button id="clear-search-btn">
                          <svg style="width: 16px; height: 16px;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
                     </button>
+                     <div class="search-info">
+                        <div class="search-info-icon">i</div>
+                        <div class="search-info-popup">
+                            <b>Special Modifiers:</b>
+                            <a href="#" class="search-modifier" data-modifier="#favorite ">#favorite</a>
+                            <a href="#" class="search-modifier" data-modifier="#quality:5 ">#quality:5</a>
+                            <a href="#" class="search-modifier" data-modifier="#content:3 ">#content:3</a>
+                        </div>
+                    </div>
                 </div>
                 
                 <div class="grid-row-4">
@@ -706,7 +743,7 @@
     <!-- Details Modal -->
     <div id="details-modal" class="modal hidden">
         <div class="modal-content details-modal-content">
-            <div class="details-header">
+            <div class="details-header modal-header-draggable">
                 <h3 class="details-title">Image Details</h3>
                 <button id="details-close" class="close-btn">
                     <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -758,7 +795,7 @@
     </div>
 
     <script>
-        // ===== ORBITAL8 Goji Version - Release F (Stable UI) =====
+        // ===== ORBITAL8 Goji Version - Release G =====
         
         const STACKS = ['in', 'out', 'priority', 'trash'];
         const STACK_NAMES = { 'in': 'Inbox', 'out': 'Maybe', 'priority': 'Keep', 'trash': 'Recycle' };
@@ -816,7 +853,7 @@
                     backButtonSpinner: document.getElementById('back-button-spinner'),
                     detailsButton: document.getElementById('details-button'),
                     imageViewport: document.getElementById('image-viewport'),
-                    centerImage: document.getElementById('center-image'), // REVERT: Get single image element
+                    centerImage: document.getElementById('center-image'),
                     emptyState: document.getElementById('empty-state'),
                     selectAnotherStackBtn: document.getElementById('select-another-stack-btn'),
                     selectAnotherFolderBtn: document.getElementById('select-another-folder-btn'),
@@ -939,7 +976,6 @@
             getPreferredImageUrl(file) {
                 if (state.providerType === 'googledrive') {
                     if (file.thumbnailLink) {
-                        // FIX: Revert to baseline method, removing timestamp hack
                         return file.thumbnailLink.replace('=s220', '=s1600');
                     }
                     return `https://drive.google.com/thumbnail?id=${file.id}&sz=w1600`;
@@ -1160,6 +1196,12 @@
                     return await this.extract(buffer);
                 } catch (error) {
                     if (error.name === 'AbortError') { return { error: 'Operation cancelled' }; }
+                     // FIX: Handle 401 Unauthorized specifically in background fetch
+                    if (error.message.includes('401')) {
+                        Utils.showToast('Session expired. Please reconnect.', 'error', true);
+                        state.provider.disconnect();
+                        App.backToProviderSelection();
+                    }
                     return { error: error.message };
                 }
             }
@@ -1167,7 +1209,6 @@
         class BaseProvider {
             constructor() {}
             updateUserMetadata(fileId, updates) {
-                 // All updates are now local-first, this method is for cloud sync only (Phase 2)
                  return Promise.resolve();
             }
         }
@@ -1729,17 +1770,14 @@
             },
             
             async processFileMetadata(file) {
-                // FIX: More robust status checking to prevent re-processing
                 if (file.metadataStatus === 'loaded' || file.metadataStatus === 'loading' || file.metadataStatus === 'error') return;
                 
-                // FIX: Check for cancellation before proceeding
                 if (state.activeRequests.signal.aborted) return;
 
                 file.metadataStatus = 'loading';
                 try {
                     const metadata = await state.metadataExtractor.fetchMetadata(file);
                     
-                    // FIX: Check for cancellation again after the async network request
                     if (state.activeRequests.signal.aborted) return;
 
                     let finalMetadata = { ...file };
@@ -1753,7 +1791,6 @@
                         finalMetadata.extractedMetadata = metadata;
                     }
                     
-                    // FIX: Wrap DB operations in a try-catch and check for cancellation
                     try {
                         if (state.activeRequests.signal.aborted) return;
                         await state.dbManager.saveMetadata(file.id, finalMetadata);
@@ -1769,7 +1806,6 @@
                     file.extractedMetadata = { 'Error': error.message };
                     file.prompt = `Metadata Error: ${error.message}`;
                     
-                    // FIX: Also wrap this fallback DB write in a try-catch
                     try {
                          if (state.activeRequests.signal.aborted) return;
                          await state.dbManager.saveMetadata(file.id, file);
@@ -2091,8 +2127,15 @@
                 Utils.elements.clearSearchBtn.style.display = query ? 'block' : 'none';
                 state.grid.selected = [];
                 state.grid.filtered = this.searchImages(query);
-                Utils.elements.gridContainer.innerHTML = '';
-                this.initializeLazyLoad(state.grid.stack);
+                
+                if (state.grid.filtered.length === 0 && query) {
+                    Utils.elements.gridContainer.innerHTML = '<p style="color: #9ca3af; text-align: center; grid-column: 1 / -1;">No images match your search.</p>';
+                    Utils.elements.selectAllBtn.textContent = '0';
+                } else {
+                    Utils.elements.gridContainer.innerHTML = '';
+                    this.initializeLazyLoad(state.grid.stack);
+                }
+                
                 this.updateSelectionUI();
                 state.grid.isDirty = true;
             },
@@ -2108,32 +2151,55 @@
             },
             
             searchImages(query) {
-                const terms = query.toLowerCase().split(' ').filter(Boolean);
-                const includeTerms = terms.filter(t => !t.startsWith('-'));
-                const excludeTerms = terms.filter(t => t.startsWith('-')).map(t => t.substring(1));
+                const terms = query.toLowerCase().match(/(?:[^\s"]+|"[^"]*")+/g) || [];
                 let results = [...(state.stacks[state.grid.stack] || [])];
 
-                const hasFavorite = includeTerms.includes('#favorite');
-                const normalIncludeTerms = includeTerms.filter(t => t !== '#favorite');
+                // Pass 1: Handle special modifiers
+                const modifierTerms = terms.filter(t => t.startsWith('#'));
+                const qualityRegex = /#quality:([1-5])/;
+                const contentRegex = /#content:([1-5])/;
 
-                if (hasFavorite) {
-                    results = results.filter(file => file.favorite === true);
-                }
+                modifierTerms.forEach(term => {
+                    if (term === '#favorite') {
+                        results = results.filter(file => file.favorite === true);
+                    }
+                    const qualityMatch = term.match(qualityRegex);
+                    if (qualityMatch) {
+                        const rating = parseInt(qualityMatch[1], 10);
+                        results = results.filter(file => file.qualityRating === rating);
+                    }
+                    const contentMatch = term.match(contentRegex);
+                    if (contentMatch) {
+                        const rating = parseInt(contentMatch[1], 10);
+                        results = results.filter(file => file.contentRating === rating);
+                    }
+                });
 
-                if (normalIncludeTerms.length > 0) {
+                // Pass 2: Handle inclusion terms
+                const includeTerms = terms.filter(t => !t.startsWith('-') && !t.startsWith('#'));
+                if (includeTerms.length > 0) {
                     results = results.filter(file => {
                         const searchableText = [
-                            file.name, file.createdTime, file.modifiedTime, ...(file.tags || []),
-                            file.notes, JSON.stringify(file.extractedMetadata || {})
+                            file.name,
+                            new Date(file.createdTime).toLocaleString(),
+                            new Date(file.modifiedTime).toLocaleString(),
+                            ...(file.tags || []),
+                            file.notes,
+                            JSON.stringify(file.extractedMetadata || {})
                         ].join(' ').toLowerCase();
-                        return normalIncludeTerms.every(term => searchableText.includes(term));
+                        return includeTerms.every(term => searchableText.includes(term.replace(/"/g, '')));
                     });
                 }
 
+                // Pass 3: Handle exclusion terms
+                const excludeTerms = terms.filter(t => t.startsWith('-')).map(t => t.substring(1).replace(/"/g, ''));
                 if (excludeTerms.length > 0) {
                     results = results.filter(file => {
                         const searchableText = [
-                            file.name, ...(file.tags || []), file.notes, JSON.stringify(file.extractedMetadata || {})
+                            file.name,
+                            ...(file.tags || []),
+                            file.notes,
+                            JSON.stringify(file.extractedMetadata || {})
                         ].join(' ').toLowerCase();
                         return !excludeTerms.some(term => searchableText.includes(term));
                     });
@@ -2665,7 +2731,6 @@
                         Utils.elements.gdriveFolderList.appendChild(div);
                     });
                 } catch (error) { 
-                    // FIX: Handle 401 Unauthorized specifically
                     if (error.message.includes('401')) {
                         Utils.showToast('Session expired. Please reconnect.', 'error', true);
                         state.provider.disconnect();
@@ -2822,8 +2887,7 @@
                     if (!assignedTags.includes(tag)) {
                         const tagEl = document.createElement('div');
                         tagEl.className = 'tag-item tag-suggestion';
-                        tagEl.textContent = tag;
-                        tagEl.dataset.tag = tag;
+                        tagEl.innerHTML = `<span>${tag}</span><button class="tag-remove" data-tag="${tag}">×</button>`;
                         recentList.appendChild(tagEl);
                     }
                 });
@@ -2841,13 +2905,22 @@
                 });
 
                 container.addEventListener('click', (e) => {
-                    if (e.target.classList.contains('tag-remove')) {
-                        const tagToRemove = e.target.dataset.tag;
-                        const newTags = assignedTags.filter(t => t !== tagToRemove);
-                        onUpdate({ tags: newTags });
+                    if (e.target.closest('.tag-remove')) {
+                        const button = e.target.closest('.tag-remove');
+                        const tagValue = button.dataset.tag;
+                        const parentList = button.closest('.tag-list');
+
+                        if (parentList.id === 'assigned-tags-list') {
+                            const newTags = assignedTags.filter(t => t !== tagValue);
+                            onUpdate({ tags: newTags });
+                        } else if (parentList.id === 'recent-tags-list') {
+                            state.tags.delete(tagValue);
+                            onUpdate({ tags: assignedTags }); // Trigger a re-render
+                        }
                     }
-                    if (e.target.classList.contains('tag-suggestion')) {
-                        const tagToAdd = e.target.dataset.tag;
+                    if (e.target.closest('.tag-suggestion')) {
+                         const tagEl = e.target.closest('.tag-suggestion');
+                         const tagToAdd = tagEl.dataset.tag;
                         if (!assignedTags.includes(tagToAdd)) {
                             const newTags = [...assignedTags, tagToAdd];
                             onUpdate({ tags: newTags });
@@ -2920,6 +2993,7 @@
                 this.setupCopyButtons(); this.setupEmptyState(); this.setupPillCounters();
                 this.setupGridControls(); this.setupSearchFunctionality(); this.setupActionButtons();
                 this.setupKeyboardNavigation();
+                this.setupModalInteractions();
             },
             setupProviderSelection() {
                 Utils.elements.googleDriveBtn.addEventListener('click', () => App.selectGoogleDrive());
@@ -3057,6 +3131,15 @@
             setupSearchFunctionality() {
                 Utils.elements.omniSearch.addEventListener('input', () => Grid.performSearch());
                 Utils.elements.clearSearchBtn.addEventListener('click', () => Grid.resetSearch());
+                document.querySelectorAll('.search-modifier').forEach(link => {
+                    link.addEventListener('click', (e) => {
+                        e.preventDefault();
+                        const searchInput = Utils.elements.omniSearch;
+                        searchInput.value += link.dataset.modifier;
+                        searchInput.focus();
+                        Grid.performSearch();
+                    });
+                });
             },
             setupActionButtons() {
                 Utils.elements.moveSelected.addEventListener('click', () => Modal.setupMoveAction());
@@ -3102,6 +3185,56 @@
                         case 'Escape': App.returnToFolderSelection(); break;
                     }
                 });
+            },
+            setupModalInteractions() {
+                const makeDraggable = (modalContent, handle) => {
+                    let pos1 = 0, pos2 = 0, pos3 = 0, pos4 = 0;
+                    handle.onmousedown = dragMouseDown;
+
+                    function dragMouseDown(e) {
+                        e.preventDefault();
+                        pos3 = e.clientX;
+                        pos4 = e.clientY;
+                        document.onmouseup = closeDragElement;
+                        document.onmousemove = elementDrag;
+                    }
+
+                    function elementDrag(e) {
+                        e.preventDefault();
+                        pos1 = pos3 - e.clientX;
+                        pos2 = pos4 - e.clientY;
+                        pos3 = e.clientX;
+                        pos4 = e.clientY;
+                        modalContent.style.top = (modalContent.offsetTop - pos2) + "px";
+                        modalContent.style.left = (modalContent.offsetLeft - pos1) + "px";
+                    }
+
+                    function closeDragElement() {
+                        document.onmouseup = null;
+                        document.onmousemove = null;
+                    }
+                };
+
+                const gridModalContent = Utils.elements.gridModal.querySelector('.modal-content');
+                const gridHeader = Utils.elements.gridModal.querySelector('.modal-header-draggable');
+                makeDraggable(gridModalContent, gridHeader);
+                gridHeader.addEventListener('dblclick', () => {
+                    gridModalContent.style.top = '';
+                    gridModalContent.style.left = '';
+                    gridModalContent.style.width = '';
+                    gridModalContent.style.height = '';
+                    Utils.elements.gridContent.scrollTop = 0;
+                });
+
+                const detailsModalContent = Utils.elements.detailsModal.querySelector('.modal-content');
+                const detailsHeader = Utils.elements.detailsModal.querySelector('.modal-header-draggable');
+                makeDraggable(detailsModalContent, detailsHeader);
+                 detailsHeader.addEventListener('dblclick', () => {
+                    detailsModalContent.style.top = '';
+                    detailsModalContent.style.left = '';
+                    detailsModalContent.style.width = '';
+                    detailsModalContent.style.height = '';
+                });
             }
         };
         async function initApp() {
@@ -3126,4 +3259,3 @@
     </script>
 </body>
 </html>
-
