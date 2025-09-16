@@ -1,10 +1,10 @@
-<!-- orbital8-v20-release-j - 2025-09-15 05:30 PM -->
+<!-- orbital8-v21-release-k - 2025-09-16 01:12 AM -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no, maximum-scale=1.0">
-    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <title>Orbital8 Goji Version</title>
     <script src="https://alcdn.msauth.net/browser/2.28.1/js/msal-browser.min.js"></script>
@@ -252,7 +252,7 @@
         .modal { 
             position: fixed; top: 0; left: 0;
             background-color: rgba(0, 0, 0, 0.5); display: flex; align-items: center; justify-content: center; z-index: 50; 
-            width: 100vw; height: 100vh; pointer-events: auto;
+            width: 100vw; height: 100vh;
         }
         .modal.hidden { display: none !important; }
         .modal-content {
@@ -354,7 +354,9 @@
         .grid-image.loaded { opacity: 1; }
         .grid-item.selected { box-shadow: 0 0 0 4px #3b82f6; }
         
-        .details-modal-content { max-width: 800px; max-height: 95vh; display: flex; flex-direction: column; resize: both; overflow: auto; }
+        .details-modal-content, .grid-modal .modal-content { resize: both; overflow: auto; }
+        .details-header, .grid-modal .modal-header { position: sticky; top: 0; }
+
         .details-header { display: flex; align-items: center; justify-content: space-between; padding: 16px; border-bottom: 1px solid #e5e7eb; flex-shrink: 0; }
         .modal-header-draggable { cursor: move; flex-grow: 1; }
         .details-title { font-size: 18px; font-weight: 500; color: #1f2937; }
@@ -527,7 +529,7 @@
             </div>
             <div id="provider-status" class="status info">Choose your preferred cloud storage</div>
         </div>
-        <div class="app-footer" id="footer-provider">orbital8-v19-release-h - 2025-09-15 05:21 PM</div>
+        <div class="app-footer" id="footer-provider">orbital8-v20-release-j - 2025-09-15 08:45 PM</div>
     </div>
     
     <!-- Google Drive Auth Screen -->
@@ -540,7 +542,7 @@
             <button class="button" id="gdrive-back-button" style="background: rgba(128,128,128,0.3);">← Back</button>
             <div id="gdrive-auth-status" class="status info">Enter your client secret to continue</div>
         </div>
-        <div class="app-footer" id="footer-gdrive-auth">orbital8-v19-release-h - 2025-09-15 05:21 PM</div>
+        <div class="app-footer" id="footer-gdrive-auth">orbital8-v20-release-j - 2025-09-15 08:45 PM</div>
     </div>
     
     <!-- OneDrive Auth Screen -->
@@ -552,7 +554,7 @@
             <button class="button" id="onedrive-back-button" style="background: rgba(128,128,128,0.3);">← Back</button>
             <div id="onedrive-auth-status" class="status info">Click to sign in with your Microsoft account</div>
         </div>
-        <div class="app-footer" id="footer-onedrive-auth">orbital8-v19-release-h - 2025-09-15 05:21 PM</div>
+        <div class="app-footer" id="footer-onedrive-auth">orbital8-v20-release-j - 2025-09-15 08:45 PM</div>
     </div>
     
     <!-- Google Drive Folder Screen -->
@@ -567,7 +569,7 @@
                 <button class="folder-button danger" id="gdrive-logout">Disconnect</button>
             </div>
         </div>
-        <div class="app-footer" id="footer-gdrive-folder">orbital8-v19-release-h - 2025-09-15 05:21 PM</div>
+        <div class="app-footer" id="footer-gdrive-folder">orbital8-v20-release-j - 2025-09-15 08:45 PM</div>
     </div>
     
     <!-- OneDrive Folder Screen -->
@@ -582,7 +584,7 @@
                 <button class="folder-button danger" id="onedrive-logout">Disconnect</button>
             </div>
         </div>
-        <div class="app-footer" id="footer-onedrive-folder">orbital8-v19-release-h - 2025-09-15 05:21 PM</div>
+        <div class="app-footer" id="footer-onedrive-folder">orbital8-v20-release-j - 2025-09-15 08:45 PM</div>
     </div>
     
     <!-- Loading Screen -->
@@ -596,7 +598,7 @@
             </div>
             <button class="button" id="cancel-loading" style="background: rgba(239, 68, 68, 0.8); margin-top: 16px;">Cancel</button>
         </div>
-        <div class="app-footer" id="footer-loading">orbital8-v19-release-h - 2025-09-15 05:21 PM</div>
+        <div class="app-footer" id="footer-loading">orbital8-v20-release-j - 2025-09-15 08:45 PM</div>
     </div>
     
     <!-- Main App Container -->
@@ -656,7 +658,7 @@
         </button>
         
         <div id="toast" class="toast"></div>
-        <div class="app-footer" id="footer-main">orbital8-v19-release-h - 2025-09-15 05:21 PM</div>
+        <div class="app-footer" id="footer-main">orbital8-v20-release-j - 2025-09-15 08:45 PM</div>
     </div>
     
     <!-- Enhanced Grid Modal -->
@@ -795,7 +797,7 @@
     </div>
 
     <script>
-        // ===== ORBITAL8 Goji Version - Release H =====
+        // ===== ORBITAL8 Goji Version - Release J =====
         
         const STACKS = ['in', 'out', 'priority', 'trash'];
         const STACK_NAMES = { 'in': 'Inbox', 'out': 'Maybe', 'priority': 'Keep', 'trash': 'Recycle' };
@@ -957,10 +959,12 @@
                         if (state.currentImageLoadId !== loadId) return;
                         resolve();
                     };
-                    img.onerror = () => {
+                    img.onerror = async () => {
                         if (state.currentImageLoadId !== loadId) return;
                         let fallbackUrl = this.getFallbackImageUrl(file);
                         
+                        await new Promise(r => setTimeout(r, 500)); 
+
                         img.onerror = () => {
                             if (state.currentImageLoadId !== loadId) return;
                             img.src = 'data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'150\' height=\'150\' viewBox=\'0 0 150 150\' fill=\'none\'%3E%3Crect width=\'150\' height=\'150\' fill=\'%23E5E7EB\'/%3E%3Cpath d=\'M65 60H85V90H65V60Z\' fill=\'%239CA3AF\'/%3E%3Ccircle cx=\'75\' cy=\'45\' r=\'10\' fill=\'%239CA3AF\'/%3E%3C/svg%3E';
@@ -2277,7 +2281,7 @@
                 const onUpdate = async (updates) => {
                     await App.updateUserMetadata(file.id, updates);
                     const updatedFile = state.imageFiles.find(f => f.id === file.id);
-                    this.populateTagsTab(updatedFile);
+                    await this.populateTagsTab(updatedFile);
                 };
                 Utils.elements.detailTags.innerHTML = '';
                 Utils.elements.detailTags.appendChild(UI.createTaggingInterface(file, onUpdate));
@@ -2286,7 +2290,7 @@
                 const onUpdate = async (updates) => {
                     await App.updateUserMetadata(file.id, updates);
                     const updatedFile = state.imageFiles.find(f => f.id === file.id);
-                    this.populateNotesTab(updatedFile);
+                    await this.populateNotesTab(updatedFile);
                 };
                 Utils.elements.detailNotes.innerHTML = '';
                 Utils.elements.detailNotes.appendChild(UI.createNotesInterface(file, onUpdate));
@@ -2920,13 +2924,13 @@
                             onUpdate({ tags: newTags });
                         } else if (parentList.id === 'recent-tags-list') {
                             state.tags.delete(tagValue);
-                            onUpdate({ tags: assignedTags }); // Trigger a re-render
+                            onUpdate({ tags: assignedTags });
                         }
                     }
                     if (e.target.closest('.tag-suggestion')) {
                          const tagEl = e.target.closest('.tag-suggestion');
                          const tagToAdd = tagEl.dataset.tag;
-                        if (!assignedTags.includes(tagToAdd)) {
+                        if (tagToAdd && !assignedTags.includes(tagToAdd)) {
                             const newTags = [...assignedTags, tagToAdd];
                             onUpdate({ tags: newTags });
                         }
