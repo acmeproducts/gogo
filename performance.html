@@ -1,10 +1,10 @@
-<!-- orbital8-v19-release-h - 2025-09-15 05:04 PM -->
+<!-- orbital8-v19-release-h - 2025-09-15 05:21 PM -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no, maximum-scale=1.0">
-    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <title>Orbital8 Goji Version</title>
     <script src="https://alcdn.msauth.net/browser/2.28.1/js/msal-browser.min.js"></script>
@@ -795,7 +795,7 @@
     </div>
 
     <script>
-        // ===== ORBITAL8 Goji Version - Release G =====
+        // ===== ORBITAL8 Goji Version - Release H =====
         
         const STACKS = ['in', 'out', 'priority', 'trash'];
         const STACK_NAMES = { 'in': 'Inbox', 'out': 'Maybe', 'priority': 'Keep', 'trash': 'Recycle' };
@@ -948,7 +948,7 @@
             },
             
             async setImageSrc(img, file) {
-                const loadId = file.id + '_' + Date.now();
+                const loadId = file.id; // REVERT: Remove timestamp hack
                 state.currentImageLoadId = loadId;
                 
                 let imageUrl = this.getPreferredImageUrl(file);
@@ -1051,10 +1051,10 @@
                 if (!this.db) return;
                 return new Promise((resolve, reject) => {
                     const transaction = this.db.transaction('folderCache', 'readwrite');
+                    transaction.onerror = (event) => reject(event.target.error);
                     const store = transaction.objectStore('folderCache');
                     const request = store.put({ folderId, files, timestamp: Date.now() });
                     request.onsuccess = () => resolve();
-                    request.onerror = () => reject(request.error);
                 });
             }
             async getMetadata(fileId) {
@@ -1071,10 +1071,10 @@
                 if (!this.db) return;
                 return new Promise((resolve, reject) => {
                     const transaction = this.db.transaction('metadata', 'readwrite');
+                    transaction.onerror = (event) => reject(event.target.error);
                     const store = transaction.objectStore('metadata');
                     const request = store.put({ id: fileId, metadata });
                     request.onsuccess = () => resolve();
-                    request.onerror = () => reject(request.error);
                 });
             }
             async addToSyncQueue(operation) { return Promise.resolve(); }
@@ -1196,7 +1196,6 @@
                     return await this.extract(buffer);
                 } catch (error) {
                     if (error.name === 'AbortError') { return { error: 'Operation cancelled' }; }
-                     // FIX: Handle 401 Unauthorized specifically in background fetch
                     if (error.message.includes('401')) {
                         Utils.showToast('Session expired. Please reconnect.', 'error', true);
                         state.provider.disconnect();
@@ -1733,8 +1732,12 @@
                 const file = state.imageFiles.find(f => f.id === fileId);
                 if (!file) return;
                 Object.assign(file, updates);
-                await state.dbManager.saveMetadata(file.id, file);
-                await state.dbManager.saveFolderCache(state.currentFolder.id, state.imageFiles);
+                try {
+                    await state.dbManager.saveMetadata(file.id, file);
+                    await state.dbManager.saveFolderCache(state.currentFolder.id, state.imageFiles);
+                } catch(e) {
+                    console.error("Failed to save to DB:", e);
+                }
             },
             
             async deleteFile(fileId) {
@@ -2271,20 +2274,20 @@
                 const size = file.size ? Utils.formatFileSize(file.size) : 'Unknown';
                 Utils.elements.detailSize.textContent = size;
             },
-            populateTagsTab(file) {
-                const onUpdate = (updates) => {
-                    App.updateUserMetadata(file.id, updates).then(() => {
-                        this.populateTagsTab(state.imageFiles.find(f => f.id === file.id));
-                    });
+            async populateTagsTab(file) {
+                const onUpdate = async (updates) => {
+                    await App.updateUserMetadata(file.id, updates);
+                    const updatedFile = state.imageFiles.find(f => f.id === file.id);
+                    this.populateTagsTab(updatedFile);
                 };
                 Utils.elements.detailTags.innerHTML = '';
                 Utils.elements.detailTags.appendChild(UI.createTaggingInterface(file, onUpdate));
             },
-            populateNotesTab(file) {
-                const onUpdate = (updates) => {
-                    App.updateUserMetadata(file.id, updates).then(() => {
-                        this.populateNotesTab(state.imageFiles.find(f => f.id === file.id));
-                    });
+            async populateNotesTab(file) {
+                const onUpdate = async (updates) => {
+                    await App.updateUserMetadata(file.id, updates);
+                    const updatedFile = state.imageFiles.find(f => f.id === file.id);
+                    this.populateNotesTab(updatedFile);
                 };
                 Utils.elements.detailNotes.innerHTML = '';
                 Utils.elements.detailNotes.appendChild(UI.createNotesInterface(file, onUpdate));
@@ -2387,8 +2390,12 @@
             },
              setupTagAction() {
                 const firstSelected = state.imageFiles.find(f => f.id === state.grid.selected[0]);
-                const onUpdate = (updates) => {
-                    this.executeTag(updates.tags);
+                const onUpdate = async (updates) => {
+                    await this.executeTag(updates.tags);
+                    // Re-render the modal content with updated tags
+                    const updatedFile = state.imageFiles.find(f => f.id === firstSelected.id);
+                    Utils.elements.actionContent.innerHTML = '';
+                    Utils.elements.actionContent.appendChild(UI.createTaggingInterface(updatedFile, onUpdate));
                 };
                 const content = UI.createTaggingInterface(firstSelected || {tags: []}, onUpdate);
                 this.show('tag', {
@@ -3259,3 +3266,4 @@
     </script>
 </body>
 </html>
+
