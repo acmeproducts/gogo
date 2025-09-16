@@ -1,4 +1,4 @@
-<!-- Orbital8-K-2025-09-16 04:12 AM -->
+<!-- Orbital8-L-2025-09-16 05:40 AM -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -552,7 +552,7 @@
             </div>
             <div id="provider-status" class="status info">Choose your preferred cloud storage</div>
         </div>
-        <div class="app-footer" id="footer-provider">Orbital8-K-2025-09-16 04:12 AM</div>
+        <div class="app-footer" id="footer-provider"></div>
     </div>
     
     <!-- Google Drive Auth Screen -->
@@ -565,7 +565,7 @@
             <button class="button" id="gdrive-back-button" style="background: rgba(128,128,128,0.3);">← Back</button>
             <div id="gdrive-auth-status" class="status info">Enter your client secret to continue</div>
         </div>
-        <div class="app-footer" id="footer-gdrive-auth">Orbital8-K-2025-09-16 04:12 AM</div>
+        <div class="app-footer" id="footer-gdrive-auth"></div>
     </div>
     
     <!-- OneDrive Auth Screen -->
@@ -577,7 +577,7 @@
             <button class="button" id="onedrive-back-button" style="background: rgba(128,128,128,0.3);">← Back</button>
             <div id="onedrive-auth-status" class="status info">Click to sign in with your Microsoft account</div>
         </div>
-        <div class="app-footer" id="footer-onedrive-auth">Orbital8-K-2025-09-16 04:12 AM</div>
+        <div class="app-footer" id="footer-onedrive-auth"></div>
     </div>
     
     <!-- Google Drive Folder Screen -->
@@ -592,7 +592,7 @@
                 <button class="folder-button danger" id="gdrive-logout">Disconnect</button>
             </div>
         </div>
-        <div class="app-footer" id="footer-gdrive-folder">Orbital8-K-2025-09-16 04:12 AM</div>
+        <div class="app-footer" id="footer-gdrive-folder"></div>
     </div>
     
     <!-- OneDrive Folder Screen -->
@@ -607,7 +607,7 @@
                 <button class="folder-button danger" id="onedrive-logout">Disconnect</button>
             </div>
         </div>
-        <div class="app-footer" id="footer-onedrive-folder">Orbital8-K-2025-09-16 04:12 AM</div>
+        <div class="app-footer" id="footer-onedrive-folder"></div>
     </div>
     
     <!-- Loading Screen -->
@@ -621,7 +621,7 @@
             </div>
             <button class="button" id="cancel-loading" style="background: rgba(239, 68, 68, 0.8); margin-top: 16px;">Cancel</button>
         </div>
-        <div class="app-footer" id="footer-loading">Orbital8-K-2025-09-16 04:12 AM</div>
+        <div class="app-footer" id="footer-loading"></div>
     </div>
     
     <!-- Main App Container -->
@@ -684,7 +684,7 @@
         </button>
         
         <div id="toast" class="toast"></div>
-        <div class="app-footer" id="footer-app">Orbital8-K-2025-09-16 04:12 AM</div>
+        <div class="app-footer" id="footer-app"></div>
     </div>
     
     <!-- Enhanced Grid Modal -->
@@ -979,7 +979,7 @@
                     metadataTable: document.getElementById('metadata-table')
                 };
                  // Set footer text dynamically
-                const versionText = "Orbital8-K-2025-09-16 04:12 AM";
+                const versionText = "Orbital8-L-2025-09-16 05:40 AM";
                 document.querySelectorAll('.app-footer').forEach(footer => footer.textContent = versionText);
             },
             
@@ -1078,7 +1078,7 @@
             constructor() { this.db = null; }
             async init() {
                 return new Promise((resolve, reject) => {
-                    const request = indexedDB.open('Orbital8-Goji-V1', 1);
+                    const request = indexedDB.open('Orbital8-Goji-V1', 2); // Version bump
                     request.onupgradeneeded = (event) => {
                         const db = event.target.result;
                         if (!db.objectStoreNames.contains('folderCache')) {
@@ -1178,54 +1178,60 @@
             }
         }
         class SyncManager {
-            constructor() { this.isSyncing = false; }
-            async requestSync() {
-                if (this.isSyncing) { return; }
+            constructor() {
+                this.syncTimer = null;
+                this.isSyncing = false;
+                this.debounceTime = 5000; // 5 seconds
+            }
+
+            wakeUp() {
+                if (this.syncTimer) {
+                    clearTimeout(this.syncTimer);
+                }
+                this.syncTimer = setTimeout(() => {
+                    this.processQueue();
+                }, this.debounceTime);
+            }
+
+            async processQueue() {
+                if (this.isSyncing) return;
                 this.isSyncing = true;
-                Utils.elements.backButtonSpinner.style.display = 'inline-block';
 
                 try {
                     const pendingFileIds = await state.dbManager.getSyncQueue();
                     if (pendingFileIds.length === 0) {
                         this.isSyncing = false;
-                        Utils.elements.backButtonSpinner.style.display = 'none';
                         return;
                     }
-
-                    if (state.providerType === 'onedrive') {
-                        // OneDrive: Batch update
-                        const allMetadata = {};
-                        state.imageFiles.forEach(file => {
-                            allMetadata[file.id] = {
-                                stack: file.stack,
-                                tags: file.tags,
-                                qualityRating: file.qualityRating,
-                                contentRating: file.contentRating,
-                                notes: file.notes,
-                                stackSequence: file.stackSequence,
-                                favorite: file.favorite
-                            };
-                        });
-                        await state.provider.updateUserMetadata(allMetadata, state.currentFolder.id);
-                    } else {
-                        // Google Drive: Individual updates
-                        for (const fileId of pendingFileIds) {
-                            const file = state.imageFiles.find(f => f.id === fileId);
-                            if (file) {
-                                await state.provider.updateUserMetadata(file.id, file);
-                            }
-                        }
+                    
+                    for (const fileId of pendingFileIds) {
+                         const fileMetadata = await state.dbManager.getMetadata(fileId);
+                         if (fileMetadata) {
+                             try {
+                                await state.provider.updateUserMetadata(fileId, fileMetadata);
+                                await state.dbManager.removeFromSyncQueue(fileId);
+                             } catch (error) {
+                                console.error(`Failed to sync file ${fileId}:`, error);
+                                // Don't remove from queue if sync fails, it will be retried next time
+                             }
+                         } else {
+                            // If metadata doesn't exist locally, no point in syncing. Remove from queue.
+                            await state.dbManager.removeFromSyncQueue(fileId);
+                         }
                     }
 
-                    await state.dbManager.clearSyncQueue();
-                    Utils.showToast(`${pendingFileIds.length} changes synced to cloud`, 'success');
+                    // After processing, check if new items were added. If so, run again.
+                    const remainingItems = await state.dbManager.getSyncQueue();
+                    if (remainingItems.length > 0) {
+                        this.isSyncing = false; // Allow the next run
+                        this.wakeUp(); // Schedule the next run
+                    } else {
+                        this.isSyncing = false;
+                    }
 
                 } catch (error) {
-                    console.error("Sync failed:", error);
-                    Utils.showToast(`Sync failed: ${error.message}`, 'error', true);
-                } finally {
+                    console.error("Sync process failed:", error);
                     this.isSyncing = false;
-                    Utils.elements.backButtonSpinner.style.display = 'none';
                 }
             }
         }
@@ -1443,17 +1449,27 @@
             }
             async getFilesAndMetadata(folderId = 'root') {
                 const allFiles = []; let nextPageToken = null;
+                const cloudMetadata = {};
                 do {
                     const query = `'${folderId}' in parents and trashed=false and (mimeType contains 'image/')`;
                     let url = `/files?q=${encodeURIComponent(query)}&fields=files(id,name,mimeType,size,createdTime,modifiedTime,thumbnailLink,webContentLink,appProperties,parents),nextPageToken&pageSize=100`;
                     if (nextPageToken) { url += `&pageToken=${nextPageToken}`; }
                     const response = await this.makeApiCall(url, { signal: state.activeRequests.signal });
-                    const files = response.files.filter(file => file.mimeType && file.mimeType.startsWith('image/')).map(file => ({ id: file.id, name: file.name, type: 'file', mimeType: file.mimeType, size: file.size ? parseInt(file.size) : 0, createdTime: file.createdTime, modifiedTime: file.modifiedTime, thumbnailLink: file.thumbnailLink, downloadUrl: file.webContentLink, appProperties: file.appProperties || {}, parents: file.parents }));
+                    const files = response.files.filter(file => file.mimeType && file.mimeType.startsWith('image/')).map(file => {
+                        if(file.appProperties) {
+                           cloudMetadata[file.id] = file.appProperties;
+                        }
+                        return { 
+                            id: file.id, name: file.name, type: 'file', mimeType: file.mimeType, size: file.size ? parseInt(file.size) : 0, 
+                            createdTime: file.createdTime, modifiedTime: file.modifiedTime, 
+                            thumbnailLink: file.thumbnailLink, downloadUrl: file.webContentLink, parents: file.parents 
+                        }
+                    });
                     allFiles.push(...files);
                     nextPageToken = response.nextPageToken;
                     if (this.onProgressCallback) { this.onProgressCallback(allFiles.length); }
                 } while (nextPageToken);
-                return { folders: [], files: allFiles };
+                return { folders: [], files: allFiles, cloudMetadata };
             }
             async moveFileToFolder(fileId, targetFolderId) {
                 const file = await this.makeApiCall(`/files/${fileId}?fields=parents`);
@@ -1469,10 +1485,10 @@
                     contentRating: String(metadata.contentRating || 0),
                     notes: metadata.notes || '',
                     stackSequence: String(metadata.stackSequence || 0),
-                    favorite: String(metadata.favorite || false)
+                    favorite: String(metadata.favorite || false),
+                    last_updated_locally: String(metadata.last_updated_locally || Date.now())
                 };
                 
-                // Cleanup null/undefined properties before sending
                 Object.keys(appProperties).forEach(key => {
                     if (appProperties[key] === null || appProperties[key] === undefined) {
                         delete appProperties[key];
@@ -1575,8 +1591,23 @@
                 }
                 return { folders: [], files: allFiles, cloudMetadata };
             }
-            async updateUserMetadata(allMetadata, folderId) {
-                const metadataString = JSON.stringify(allMetadata, null, 2);
+            async updateUserMetadata(fileId, metadata) {
+                // For OneDrive, we need to fetch the existing metadata file, update it, and re-upload.
+                 const folderId = state.currentFolder.id;
+                 const { cloudMetadata } = await this.getFilesAndMetadata(folderId);
+
+                 cloudMetadata[fileId] = {
+                    stack: metadata.stack,
+                    tags: metadata.tags,
+                    qualityRating: metadata.qualityRating,
+                    contentRating: metadata.contentRating,
+                    notes: metadata.notes,
+                    stackSequence: metadata.stackSequence,
+                    favorite: metadata.favorite,
+                    last_updated_locally: metadata.last_updated_locally
+                 };
+
+                const metadataString = JSON.stringify(cloudMetadata, null, 2);
                 const metadataBlob = new Blob([metadataString], { type: 'application/json' });
                 const endpoint = folderId === 'root' 
                     ? `/me/drive/root:/${ONEDRIVE_METADATA_FILENAME}:/content`
@@ -1739,7 +1770,7 @@
             },
             
             backToProviderSelection() {
-                if(state.syncManager) state.syncManager.requestSync();
+                if(state.syncManager) state.syncManager.wakeUp(); // Trigger a final sync
                 state.provider = null;
                 state.providerType = null;
                 Utils.showScreen('provider-screen');
@@ -1757,18 +1788,6 @@
             },
 
             async loadImages() {
-                const cachedFiles = await state.dbManager.getFolderCache(state.currentFolder.id);
-
-                if (cachedFiles) {
-                    Utils.showScreen('app-container');
-                    state.imageFiles = cachedFiles;
-                    await this.processAllMetadata(state.imageFiles);
-                    Core.initializeStacks();
-                    Core.initializeImageDisplay();
-                    this.refreshFolderInBackground();
-                    return;
-                }
-
                 Utils.showScreen('loading-screen');
                 Utils.updateLoadingProgress(0, 0, 'Fetching from cloud...');
                 
@@ -1788,6 +1807,7 @@
                     
                     Core.initializeStacks();
                     Core.initializeImageDisplay();
+                    Utils.showScreen('app-container');
                     
                 } catch (error) {
                     if (error.name !== 'AbortError') {
@@ -1796,71 +1816,31 @@
                     this.returnToFolderSelection();
                 }
             },
-
-            async refreshFolderInBackground() {
-                try {
-                    const result = await state.provider.getFilesAndMetadata(state.currentFolder.id);
-                    const cloudFiles = result.files || [];
-                    const cloudMetadata = result.cloudMetadata || {};
-                    const localFiles = await state.dbManager.getFolderCache(state.currentFolder.id) || [];
-            
-                    const cloudFileMap = new Map(cloudFiles.map(f => [f.id, f]));
-                    const localFileMap = new Map(localFiles.map(f => [f.id, f]));
-                    let hasChanges = false;
-            
-                    // Add/update files from cloud
-                    for (const cloudFile of cloudFiles) {
-                        const localFile = localFileMap.get(cloudFile.id);
-                        if (!localFile || new Date(cloudFile.modifiedTime) > new Date(localFile.modifiedTime)) {
-                            hasChanges = true;
-                            localFileMap.set(cloudFile.id, { ...localFile, ...cloudFile });
-                        }
-                    }
-            
-                    // Remove deleted files
-                    for (const localId of localFileMap.keys()) {
-                        if (!cloudFileMap.has(localId)) {
-                            hasChanges = true;
-                            localFileMap.delete(localId);
-                        }
-                    }
-            
-                    if (hasChanges) {
-                        const newMergedFiles = Array.from(localFileMap.values());
-                        await this.processAllMetadata(newMergedFiles, false, cloudMetadata);
-                        await state.dbManager.saveFolderCache(state.currentFolder.id, newMergedFiles);
-                        state.imageFiles = newMergedFiles;
-                        Core.initializeStacks();
-                        Core.updateStackCounts();
-                        if(state.imageFiles.length > 0) Core.displayCurrentImage();
-                        else Core.showEmptyState();
-                        Utils.showToast('Folder updated in background', 'info');
-                    }
-                } catch (error) {
-                    console.warn("Background refresh failed:", error.message);
-                }
-            },
             
             async processAllMetadata(files, isFirstLoad = false, cloudMetadata = {}) {
                  if (isFirstLoad) Utils.updateLoadingProgress(0, files.length, 'Processing files...');
                  for (let i = 0; i < files.length; i++) {
                     const file = files[i];
                     const localMetadata = await state.dbManager.getMetadata(file.id);
-                    const cloudMetaForFile = state.providerType === 'googledrive' ? file.appProperties : cloudMetadata[file.id];
+                    const cloudMetaForFile = cloudMetadata[file.id];
                     
                     let finalMetadata;
-                    if (localMetadata) {
-                         finalMetadata = { ...localMetadata };
+
+                    const cloudTimestamp = cloudMetaForFile ? parseInt(cloudMetaForFile.last_updated_locally) : 0;
+                    const localTimestamp = localMetadata ? localMetadata.last_updated_locally : 0;
+
+                    if (cloudTimestamp > localTimestamp) {
+                        // Cloud is newer, use it
+                        finalMetadata = this.parseCloudMetadata(cloudMetaForFile);
+                    } else if (localMetadata) {
+                        // Local is newer or same, use local
+                        finalMetadata = localMetadata;
                     } else {
-                         finalMetadata = this.generateDefaultMetadata(file, cloudMetaForFile);
+                        // No local, no cloud, generate default
+                        finalMetadata = this.generateDefaultMetadata(file, null);
                     }
-
-                    // If cloud metadata exists, merge it in
-                    if (cloudMetaForFile) {
-                        const parsedCloudMeta = this.parseCloudMetadata(cloudMetaForFile);
-                        Object.assign(finalMetadata, parsedCloudMeta);
-                    }
-
+                    
+                    // Always merge core file properties
                     Object.assign(file, finalMetadata);
                     await state.dbManager.saveMetadata(file.id, file);
 
@@ -1870,14 +1850,16 @@
             },
 
             generateDefaultMetadata(file, cloudMeta) {
-                if (cloudMeta) {
-                    return this.parseCloudMetadata(cloudMeta);
-                }
-                 return { 
+                 const base = { 
                     stack: 'in', tags: [], qualityRating: 0, contentRating: 0, notes: '', 
                     stackSequence: 0, favorite: false,
-                    extractedMetadata: {}, metadataStatus: 'pending' 
+                    extractedMetadata: {}, metadataStatus: 'pending',
+                    last_updated_locally: 0
                 };
+                if (cloudMeta) {
+                    Object.assign(base, this.parseCloudMetadata(cloudMeta));
+                }
+                return base;
             },
 
             parseCloudMetadata(cloudMeta) {
@@ -1889,7 +1871,8 @@
                         contentRating: parseInt(cloudMeta.contentRating) || 0,
                         notes: cloudMeta.notes || '',
                         stackSequence: parseInt(cloudMeta.stackSequence) || 0,
-                        favorite: cloudMeta.favorite === 'true'
+                        favorite: cloudMeta.favorite === 'true',
+                        last_updated_locally: parseInt(cloudMeta.last_updated_locally) || 0
                     };
                  } else { // OneDrive
                     return {
@@ -1899,7 +1882,8 @@
                         contentRating: cloudMeta.contentRating || 0,
                         notes: cloudMeta.notes || '',
                         stackSequence: cloudMeta.stackSequence || 0,
-                        favorite: cloudMeta.favorite || false
+                        favorite: cloudMeta.favorite || false,
+                        last_updated_locally: cloudMeta.last_updated_locally || 0
                     };
                  }
             },
@@ -1909,15 +1893,14 @@
             },
             
             returnToFolderSelection() {
-                state.syncManager.requestSync().then(() => {
-                     state.activeRequests.abort(); 
-                    this.resetViewState();
-                    if (state.providerType === 'googledrive') {
-                        Utils.showScreen('gdrive-folder-screen');
-                    } else if (state.providerType === 'onedrive') {
-                        Utils.showScreen('onedrive-folder-screen');
-                    }
-                });
+                state.syncManager.wakeUp();
+                state.activeRequests.abort();
+                this.resetViewState();
+                if (state.providerType === 'googledrive') {
+                    Utils.showScreen('gdrive-folder-screen');
+                } else if (state.providerType === 'onedrive') {
+                    Utils.showScreen('onedrive-folder-screen');
+                }
             },
 
             resetViewState() {
@@ -1932,10 +1915,14 @@
             async updateUserMetadata(fileId, updates) {
                 const file = state.imageFiles.find(f => f.id === fileId);
                 if (!file) return;
+
                 Object.assign(file, updates);
-                await state.dbManager.saveMetadata(file.id, file);
+                file.last_updated_locally = Date.now();
+
+                await state.dbManager.saveMetadata(fileId, file);
                 await state.dbManager.saveFolderCache(state.currentFolder.id, state.imageFiles);
                 await state.dbManager.addToSyncQueue(fileId);
+                state.syncManager.wakeUp();
             },
             
             async deleteFile(fileId) {
@@ -1980,7 +1967,6 @@
                     if (metadata.error) {
                         finalMetadata.metadataStatus = 'error';
                         finalMetadata.extractedMetadata = { 'Error': metadata.error };
-                        finalMetadata.prompt = `Metadata Error: ${metadata.error}`;
                     } else {
                         finalMetadata.metadataStatus = 'loaded';
                         finalMetadata.extractedMetadata = metadata;
@@ -1994,7 +1980,6 @@
                     console.warn(`Background metadata extraction failed for ${file.name}: ${error.message}`);
                     file.metadataStatus = 'error';
                     file.extractedMetadata = { 'Error': error.message };
-                    file.prompt = `Metadata Error: ${error.message}`;
                     await state.dbManager.saveMetadata(file.id, file);
                 }
             }
@@ -2412,15 +2397,9 @@
                 const newStack = [...topItems, ...bottomItems];
                 const timestamp = Date.now();
                 
-                newStack.forEach((file, i) => {
-                    file.stackSequence = timestamp - i;
-                });
-
-                for(const file of newStack) {
-                    await state.dbManager.saveMetadata(file.id, file);
-                    await state.dbManager.addToSyncQueue(file.id);
+                for(const [i, file] of newStack.entries()) {
+                    await App.updateUserMetadata(file.id, { stackSequence: timestamp - i });
                 }
-                await state.dbManager.saveFolderCache(state.currentFolder.id, state.imageFiles);
 
                 state.stacks[state.grid.stack] = newStack;
                 state.currentStackPosition = 0;
